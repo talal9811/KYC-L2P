@@ -1,0 +1,29 @@
+{
+  "name": "kyc-watchlist-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KYC Watchlist Checker Demo Application",
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "server": "cd server && npm start",
+    "client": "cd client && npm run dev",
+    "dev": "npm run server & npm run client"
+  },
+  "dependencies": {
+    "@headlessui/react": "^2.2.9",
+    "express": "^5.1.0",
+    "firebase": "^12.6.0",
+    "next": "^16.0.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.6",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.0.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4"
+  }
+}

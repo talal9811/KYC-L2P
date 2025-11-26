@@ -1,0 +1,19 @@
+{
+  "name": "kyc-watchlist-server",
+  "version": "1.0.0",
+  "description": "KYC Watchlist Checker Demo - Backend",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "jsonwebtoken": "^9.0.2",
+    "pdfkit": "^0.15.0"
+  }
+}
+
+

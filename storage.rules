@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Sanctions folder - allow authenticated users to read/write
+    match /sanctions/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Uploads folder - allow authenticated users to read/write
+    match /uploads/{userId}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Default rule for authenticated users
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+

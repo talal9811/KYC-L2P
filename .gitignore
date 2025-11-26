@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+server/node_modules/
+client/node_modules/
+
+# Data files (optional - remove if you want to track them)
+server/data/
+
+# Build outputs
+client/dist/
+client/build/
+.next/
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
