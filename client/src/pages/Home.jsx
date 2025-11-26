@@ -1,22 +1,22 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
 import { collection, addDoc, getDocs } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../firebase/firebase'
-import { Upload, FileSearch, CheckCircle2, Zap } from 'lucide-react'
+import { Upload, FileSearch, CheckCircle2, Zap, Shield, Search, FileText, LogOut, Menu, X, User, Calendar, Globe, CreditCard, AlertTriangle, CheckCircle, XCircle, Settings, Database, Moon, Sun } from 'lucide-react'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 
 function Home() {
   const { logout, getToken, user, isAuthenticated } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   
   const [formData, setFormData] = useState({
     fullName: '',
-    dateOfBirth: '',
     nationality: '',
-    idType: '',
     idNumber: ''
   })
   
@@ -35,6 +35,7 @@ function Home() {
   const [sanctionsLoading, setSanctionsLoading] = useState(false)
   const [extractedData, setExtractedData] = useState(null)
   const [showSanctions, setShowSanctions] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -105,7 +106,6 @@ function Home() {
       const searchName = formData.fullName.toLowerCase().trim()
       const searchId = formData.idNumber?.toLowerCase().trim() || ''
       const searchNationality = formData.nationality?.toLowerCase().trim() || ''
-      const searchBirth = formData.dateOfBirth?.trim() || ''
 
       const matches = allEntries.filter(entry => {
         // Name matching (case-insensitive, partial match)
@@ -126,14 +126,7 @@ function Home() {
           nationalityMatch = entryNationality.includes(searchNationality) || searchNationality.includes(entryNationality)
         }
 
-        // Birth date matching (if provided)
-        let birthMatch = true
-        if (searchBirth && entry.birth && entry.birth !== 'N/A') {
-          const entryBirth = (entry.birth || '').trim()
-          birthMatch = entryBirth === searchBirth || entryBirth.includes(searchBirth) || searchBirth.includes(entryBirth)
-        }
-
-        return nameMatch && idMatch && nationalityMatch && birthMatch
+        return nameMatch && idMatch && nationalityMatch
       })
 
       const result = {
@@ -141,9 +134,7 @@ function Home() {
         matches: matches,
         person: {
           fullName: formData.fullName,
-          dateOfBirth: formData.dateOfBirth,
           nationality: formData.nationality,
-          idType: formData.idType,
           idNumber: formData.idNumber
         },
         totalEntriesChecked: allEntries.length
@@ -883,385 +874,545 @@ function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Top Bar */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-xl font-bold text-gray-800">
-              KYC Watchlist Checker 
-            </h1>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Logout
-            </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <aside className={`fixed left-0 top-0 h-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-700/50 z-40 transition-all duration-300 ${
+        sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'
+      }`}>
+        <div className="h-full flex flex-col p-6">
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-8">
+            <img 
+              src="/svgviewer-png-output.png" 
+              alt="Logo" 
+              className="w-10 h-10 object-contain"
+            />
+            <div>
+              <h1 className="text-lg font-bold gradient-text">KYC L2P Checker</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Compliance System</p>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Disclaimer Banner */}
-    
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="max-w-3xl mx-auto">
-          {/* Person Input Form */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-              Person Input Form
-            </h2>
-
-            <form onSubmit={handleCheckWatchlist} className="space-y-4">
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="fullName"
-                  name="fullName"
-                  type="text"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter full name"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth
-                </label>
-                <input
-                  id="dateOfBirth"
-                  name="dateOfBirth"
-                  type="date"
-                  value={formData.dateOfBirth}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="nationality" className="block text-sm font-medium text-gray-700 mb-1">
-                  Nationality
-                </label>
-                <input
-                  id="nationality"
-                  name="nationality"
-                  type="text"
-                  value={formData.nationality}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., US, UK, CA"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="idType" className="block text-sm font-medium text-gray-700 mb-1">
-                  ID Type
-                </label>
-                <select
-                  id="idType"
-                  name="idType"
-                  value={formData.idType}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select ID Type</option>
-                  <option value="Passport">Passport</option>
-                  <option value="National ID">National ID</option>
-                  <option value="Driver License">Driver License</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="idNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                  ID Number
-                </label>
-                <input
-                  id="idNumber"
-                  name="idNumber"
-                  type="text"
-                  value={formData.idNumber}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter ID number"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-              >
-                {loading ? 'Checking...' : 'Check Watchlist'}
-              </button>
-            </form>
-
-            {/* Check Result */}
-            {checkResult && (
-              <div className="mt-6">
-                {checkResult.status === 'MATCH_FOUND' ? (
-                  <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6">
-                    <div className="flex items-center mb-4">
-                      <svg className="w-6 h-6 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      <h3 className="text-xl font-semibold text-red-800">
-                        Match Found in Watchlist
-                      </h3>
-                    </div>
-                    <p className="text-sm text-gray-700 mb-4">
-                      Found {checkResult.matches.length} match(es) out of {checkResult.totalEntriesChecked || 0} entries checked
-                    </p>
-                    <div className="space-y-2">
-                      {checkResult.matches.map((match, idx) => (
-                        <div key={idx} className="bg-white p-4 rounded border border-red-200">
-                          <p className="font-medium text-gray-800">Match #{idx + 1}</p>
-                          <div className="mt-2 space-y-1 text-sm">
-                            <p><span className="font-medium">Name:</span> {match.name}</p>
-                            <p><span className="font-medium">Nationality:</span> {match.nationality}</p>
-                            <p><span className="font-medium">Birth Date:</span> {match.birth}</p>
-                            <p><span className="font-medium">ID:</span> {match.id}</p>
-                          </div>
-                          <p className="text-sm text-gray-600">Name: {match.name}</p>
-                          {match.notes && (
-                            <p className="text-xs text-gray-500 mt-1">{match.notes}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : checkResult.status === 'NO_MATCH' ? (
-                  <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6">
-                    <div className="flex items-center mb-4">
-                      <svg className="w-6 h-6 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <h3 className="text-xl font-semibold text-green-800">
-                        No match found in internal watchlist.
-                      </h3>
-                    </div>
-                    <button
-                      onClick={handleGenerateCertificate}
-                      className="mt-4 bg-green-600 text-white py-2 px-6 rounded-lg hover:bg-green-700 transition-colors font-medium"
-                    >
-                      Generate Clearance Certificate
-                    </button>
-                  </div>
-                ) : (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-                    {checkResult.error || 'An error occurred'}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Sanctions Section */}
-        <div className="mt-8">
-          <section className="bg-white/90 backdrop-blur-md rounded-xl p-6 border border-purple-200 mb-8 shadow-lg">
-            <div className="flex items-center justify-between mb-6">
+          {/* Navigation */}
+          <nav className="flex-1 space-y-2">
+            <div className="px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
               <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-r from-purple-500 to-purple-500 p-2 rounded-lg">
-                  <Upload className="h-5 w-5 text-white" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-800">Upload Sanctions HTML</h2>
+                <Search className="w-5 h-5" />
+                <span className="font-semibold">Person Check</span>
               </div>
+            </div>
+            <button
+              onClick={() => setShowSanctions(!showSanctions)}
+              className={`w-full px-3 py-2 rounded-xl flex items-center gap-3 transition-all ${
+                showSanctions 
+                  ? 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400' 
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Database className="w-5 h-5" />
+              <span className="font-medium">Sanctions Upload</span>
+            </button>
+          </nav>
+
+          {/* User Info */}
+          <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  {user?.email || 'User'}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Logged in</p>
+              </div>
+            </div>
+            <div className="space-y-2">
               <button
-                onClick={() => setShowSanctions(!showSanctions)}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  toggleTheme()
+                }}
+                className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex items-center justify-center gap-2 font-medium"
+                aria-label="Toggle theme"
+                type="button"
               >
-                {showSanctions ? 'Hide' : 'Show'} Sanctions Upload
+                {theme === 'dark' ? (
+                  <>
+                    <Sun className="w-4 h-4" />
+                    <span>Light Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="w-4 h-4" />
+                    <span>Dark Mode</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-full px-3 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex items-center justify-center gap-2 font-medium"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
               </button>
             </div>
-            
-            {showSanctions && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <div className="bg-purple-50/50 border-2 border-dashed border-purple-300 rounded-xl p-8 text-center">
-                    <div className="flex justify-center mb-4">
-                      <div className="bg-gradient-to-r from-purple-200/50 to-purple-300/50 p-4 rounded-full">
-                        <FileSearch className="h-8 w-8 text-purple-400" />
-                      </div>
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-800 mb-2">Drop your HTML file here or browse</h3>
-                    <p className="text-gray-600 text-sm mb-6">Support for HTML files with table data</p>
-                    
-                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                      <label className="cursor-pointer">
-                        <span className="bg-gradient-to-r from-purple-500 to-purple-500 text-white py-2 px-6 rounded-lg font-medium inline-flex items-center gap-2 hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">
-                          <Upload className="h-4 w-4" /> Browse Files
-                        </span>
-                        <input 
-                          id="sanctions-html-upload"
-                          type="file" 
-                          accept=".html,text/html" 
-                          onChange={handleSanctionsHtmlUpload} 
-                          className="hidden" 
-                        />
-                      </label>
-                      
-                      {sanctionsHtmlFile && (
-                        <button 
-                          onClick={handleSaveSanctionsToFirebase}
-                          disabled={sanctionsSaving || sanctionsLoading || !extractedData || !Array.isArray(extractedData)} 
-                          className={`py-2 px-6 rounded-lg font-medium inline-flex items-center gap-2 transform hover:-translate-y-0.5 transition-all duration-200 ${
-                            sanctionsSaving || sanctionsLoading || !extractedData || !Array.isArray(extractedData)
-                              ? "bg-gray-400 text-white cursor-not-allowed" 
-                              : "bg-gradient-to-r from-green-400 to-green-600 text-white hover:shadow-lg"
-                          }`}
-                        > 
-                          {sanctionsSaving ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                              Uploading...
-                            </>
-                          ) : (
-                            <>
-                              <Zap className="h-4 w-4" /> Save to Firebase
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                    
-                    {sanctionsHtmlFile && (
-                      <div className="mt-4 text-sm text-gray-600">
-                        Selected: <span className="text-gray-800 font-medium">{sanctionsHtmlFile.name}</span>
-                      </div>
-                    )}
-                  </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'md:ml-64' : 'ml-0'}`}>
+        {/* Top Bar */}
+        <header className="sticky top-0 z-30 glass-card border-b border-slate-200/50 dark:border-slate-700/50">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+            <div className="flex items-center gap-4">
+              {/* Logo */}
+              <img 
+                src="/svgviewer-png-output.png" 
+                alt="Logo" 
+                className="h-10 w-auto object-contain hidden sm:block"
+              />
+              {/* Theme Toggle Button */}
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  toggleTheme()
+                }}
+                className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-200 hover:scale-110"
+                aria-label="Toggle theme"
+                type="button"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="w-5 h-5 text-yellow-500" />
+                ) : (
+                  <Moon className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+                )}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content Area */}
+        <main className="p-6">
+          <div className="max-w-6xl mx-auto space-y-6">
+            {/* Welcome Card */}
+            <div className="card-modern bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
+                  <p className="text-blue-100">Verify individuals against the watchlist database</p>
                 </div>
-                
-                <div className="space-y-4">
-                  <div className="bg-purple-50/50 rounded-lg p-4 border border-purple-200">
-                    <h4 className="text-sm font-medium text-gray-800 mb-2">Extraction Features</h4>
-                    <ul className="space-y-2 text-sm text-gray-600">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                        <span>HTML table parsing</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                        <span>JSON conversion</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                        <span>Firebase Storage & Firestore</span>
-                      </li>
-                    </ul>
-                  </div>
+                <div className="hidden md:block">
+                  <Shield className="w-24 h-24 text-white/20" />
                 </div>
               </div>
-            )}
+            </div>
 
-            {showSanctions && (
-              <>
-                {sanctionsLoading && (
-                  <div className="text-center py-4 mt-6">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                    <p className="mt-2 text-sm text-gray-600">Processing HTML and extracting table data...</p>
-                  </div>
-                )}
+            {/* Person Input Form */}
+            <div className="card-modern">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  Person Verification Form
+                </h2>
+              </div>
 
-                {extractedData && Array.isArray(extractedData) && extractedData.length > 0 && (
-                  <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                      Extracted Data ({extractedData.length} entries)
-                    </h3>
-                    <div className="max-h-96 overflow-y-auto mb-4">
-                      <table className="min-w-full text-sm">
-                        <thead className="bg-green-100 sticky top-0">
-                          <tr>
-                            <th className="px-3 py-2 text-left font-medium text-gray-700">Name</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-700">Nationality</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-700">Birth</th>
-                            <th className="px-3 py-2 text-left font-medium text-gray-700">ID</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-green-200">
-                          {extractedData.slice(0, 10).map((entry, index) => (
-                            <tr key={index} className="hover:bg-green-50">
-                              <td className="px-3 py-2 text-gray-900">{entry.name}</td>
-                              <td className="px-3 py-2 text-gray-700">{entry.nationality}</td>
-                              <td className="px-3 py-2 text-gray-700">{entry.birth}</td>
-                              <td className="px-3 py-2 text-gray-700">{entry.id}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {extractedData.length > 10 && (
-                        <p className="text-xs text-gray-600 mt-2">
-                          Showing first 10 of {extractedData.length} entries. All entries will be saved to Firebase.
-                        </p>
-                      )}
-                    </div>
-                    <div className="mt-4 p-3 bg-white rounded border border-green-300">
-                      <p className="text-xs font-medium text-gray-700 mb-1">JSON Data (Preview):</p>
-                      <pre className="text-xs text-gray-600 overflow-x-auto max-h-40">
-                        {JSON.stringify(extractedData.slice(0, 3), null, 2)}
-                        {extractedData.length > 3 && '\n...\n' + (extractedData.length - 3) + ' more entries'}
-                      </pre>
+              <form onSubmit={handleCheckWatchlist} className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="md:col-span-2">
+                    <label htmlFor="fullName" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input
+                        id="fullName"
+                        name="fullName"
+                        type="text"
+                        value={formData.fullName}
+                        onChange={handleInputChange}
+                        required
+                        className="input-modern pl-12"
+                        placeholder="Enter full name"
+                      />
                     </div>
                   </div>
-                )}
 
-                {sanctionsMessage && (
-                  <div className={`mt-6 p-4 rounded-lg ${
-                    sanctionsMessage.type === 'success'
-                      ? 'bg-green-50 border border-green-200 text-green-700'
-                      : sanctionsMessage.type === 'info'
-                      ? 'bg-blue-50 border border-blue-200 text-blue-700'
-                      : 'bg-red-50 border border-red-200 text-red-700'
-                  }`}>
-                    <div className="whitespace-pre-wrap break-words">{sanctionsMessage.text}</div>
-                    {sanctionsMessage.type === 'error' && (
-                      <div className="mt-2 text-xs opacity-75">
-                        Check browser console (F12) for detailed error logs
-                      </div>
-                    )}
+                  <div>
+                    <label htmlFor="nationality" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Nationality
+                    </label>
+                    <div className="relative">
+                      <Globe className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input
+                        id="nationality"
+                        name="nationality"
+                        type="text"
+                        value={formData.nationality}
+                        onChange={handleInputChange}
+                        className="input-modern pl-12"
+                        placeholder="e.g., US, UK, CA"
+                      />
+                    </div>
                   </div>
-                )}
 
-
-                <div className="mt-6 space-y-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">
-                      <strong>How it works:</strong>
-                    </p>
-                    <ul className="text-sm text-blue-800 mt-2 list-disc list-inside space-y-1">
-                      <li>Upload an HTML file containing a table with sanctions list data</li>
-                      <li>The system parses the HTML table and extracts name, nationality, birth date, and ID</li>
-                      <li>Data is converted to JSON format</li>
-                      <li>Click &quot;Save to Firebase&quot; to upload the HTML file and save JSON data</li>
-                      <li>The HTML file is uploaded to Firebase Storage</li>
-                      <li>All extracted entries are saved to Firestore as JSON array</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <p className="text-sm text-yellow-800 font-semibold mb-2">Troubleshooting</p>
-                    <button
-                      onClick={testFirebaseConnection}
-                      className="text-sm text-yellow-800 underline hover:text-yellow-900"
-                    >
-                      Test Firebase Connection
-                    </button>
-                    <p className="text-xs text-yellow-700 mt-2">
-                      If uploads fail, click above to test your Firebase connection. Check the browser console (F12) for detailed error messages.
-                    </p>
+                  <div>
+                    <label htmlFor="idNumber" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      ID Number
+                    </label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input
+                        id="idNumber"
+                        name="idNumber"
+                        type="text"
+                        value={formData.idNumber}
+                        onChange={handleInputChange}
+                        className="input-modern pl-12"
+                        placeholder="Enter ID number"
+                      />
+                    </div>
                   </div>
                 </div>
-              </>
-            )}
-          </section>
-        </div>
-       
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Checking Watchlist...
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <Search className="w-5 h-5" />
+                      Check Watchlist
+                    </span>
+                  )}
+                </button>
+              </form>
+
+              {/* Check Result */}
+              {checkResult && (
+                <div className="mt-6 animate-fade-in">
+                  {checkResult.status === 'MATCH_FOUND' ? (
+                    <div className="card-modern border-2 border-red-300 dark:border-red-700 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20">
+                      <div className="flex items-start gap-4 mb-6">
+                        <div className="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center flex-shrink-0">
+                          <AlertTriangle className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-2xl font-bold text-red-800 dark:text-red-300 mb-2">
+                            Match Found in Watchlist
+                          </h3>
+                          <p className="text-sm text-red-700 dark:text-red-400">
+                            Found <span className="font-bold">{checkResult.matches.length}</span> match(es) out of <span className="font-bold">{checkResult.totalEntriesChecked || 0}</span> entries checked
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        {checkResult.matches.map((match, idx) => (
+                          <div key={idx} className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-red-200 dark:border-red-800 shadow-md">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                                <span className="text-red-600 dark:text-red-400 font-bold text-sm">#{idx + 1}</span>
+                              </div>
+                              <p className="font-bold text-slate-900 dark:text-slate-100">Match Details</p>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                              <div className="flex items-start gap-2">
+                                <User className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">Name</p>
+                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{match.name}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <Globe className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">Nationality</p>
+                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{match.nationality}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <Calendar className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">Birth Date</p>
+                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{match.birth}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <CreditCard className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">ID Number</p>
+                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{match.id}</p>
+                                </div>
+                              </div>
+                            </div>
+                            {match.notes && (
+                              <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
+                                <p className="text-xs text-slate-600 dark:text-slate-400">{match.notes}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : checkResult.status === 'NO_MATCH' ? (
+                    <div className="card-modern border-2 border-green-300 dark:border-green-700 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+                      <div className="flex items-start gap-4 mb-6">
+                        <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center flex-shrink-0">
+                          <CheckCircle className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-2xl font-bold text-green-800 dark:text-green-300 mb-2">
+                            No Match Found
+                          </h3>
+                          <p className="text-sm text-green-700 dark:text-green-400">
+                            The person is not listed in the watchlist database
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleGenerateCertificate}
+                        className="btn-primary bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-green-500/25 hover:shadow-green-500/40"
+                      >
+                        <FileText className="w-5 h-5 mr-2" />
+                        Generate Clearance Certificate
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="card-modern border-2 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
+                      <div className="flex items-center gap-3">
+                        <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                        <p className="text-red-700 dark:text-red-400 font-semibold">
+                          {checkResult.error || 'An error occurred'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Sanctions Section */}
+            <div className="card-modern">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
+                    <Database className="w-5 h-5 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    Sanctions Data Upload
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setShowSanctions(!showSanctions)}
+                  className="btn-secondary text-sm"
+                >
+                  {showSanctions ? 'Hide' : 'Show'} Upload
+                </button>
+              </div>
+              
+              {showSanctions && (
+                <div className="space-y-6 animate-fade-in">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2">
+                      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-2 border-dashed border-purple-300 dark:border-purple-700 rounded-2xl p-8 text-center">
+                        <div className="flex justify-center mb-4">
+                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shadow-lg">
+                            <FileSearch className="h-8 w-8 text-white" />
+                          </div>
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">
+                          Upload HTML File
+                        </h3>
+                        <p className="text-slate-600 dark:text-slate-400 text-sm mb-6">
+                          Drop your HTML file here or browse to upload
+                        </p>
+                        
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                          <label className="cursor-pointer">
+                            <span className="btn-primary bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-500/25 hover:shadow-purple-500/40 inline-flex items-center gap-2">
+                              <Upload className="h-4 w-4" /> Browse Files
+                            </span>
+                            <input 
+                              id="sanctions-html-upload"
+                              type="file" 
+                              accept=".html,text/html" 
+                              onChange={handleSanctionsHtmlUpload} 
+                              className="hidden" 
+                            />
+                          </label>
+                          
+                          {sanctionsHtmlFile && (
+                            <button 
+                              onClick={handleSaveSanctionsToFirebase}
+                              disabled={sanctionsSaving || sanctionsLoading || !extractedData || !Array.isArray(extractedData)} 
+                              className={`btn-primary inline-flex items-center gap-2 ${
+                                sanctionsSaving || sanctionsLoading || !extractedData || !Array.isArray(extractedData)
+                                  ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed opacity-50" 
+                                  : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25 hover:shadow-green-500/40"
+                              }`}
+                            > 
+                              {sanctionsSaving ? (
+                                <>
+                                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <Zap className="h-5 w-5" /> Save to Firebase
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                        
+                        {sanctionsHtmlFile && (
+                          <div className="mt-6 p-4 bg-white dark:bg-slate-800 rounded-xl border border-purple-200 dark:border-purple-700">
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              Selected: <span className="font-semibold text-slate-900 dark:text-slate-100">{sanctionsHtmlFile.name}</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="card-modern bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          Extraction Features
+                        </h4>
+                        <ul className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
+                          <li className="flex items-start gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span>HTML table parsing</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span>JSON conversion</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span>Firebase Storage & Firestore</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showSanctions && (
+                <>
+                  {sanctionsLoading && (
+                    <div className="text-center py-8">
+                      <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
+                      <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 font-medium">
+                        Processing HTML and extracting table data...
+                      </p>
+                    </div>
+                  )}
+
+                  {extractedData && Array.isArray(extractedData) && extractedData.length > 0 && (
+                    <div className="card-modern bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-300 dark:border-green-700">
+                      <div className="flex items-center gap-3 mb-4">
+                        <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                          Extracted Data ({extractedData.length} entries)
+                        </h3>
+                      </div>
+                      <div className="max-h-96 overflow-y-auto mb-4 rounded-xl border border-green-200 dark:border-green-800">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-green-100 dark:bg-green-900/30 sticky top-0">
+                            <tr>
+                              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Name</th>
+                              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Nationality</th>
+                              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Birth</th>
+                              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">ID</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white dark:bg-slate-800 divide-y divide-green-200 dark:divide-green-800">
+                            {extractedData.slice(0, 10).map((entry, index) => (
+                              <tr key={index} className="hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
+                                <td className="px-4 py-3 text-slate-900 dark:text-slate-100 font-medium">{entry.name}</td>
+                                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{entry.nationality}</td>
+                                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{entry.birth}</td>
+                                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{entry.id}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {extractedData.length > 10 && (
+                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border-t border-green-200 dark:border-green-800">
+                            <p className="text-xs text-slate-600 dark:text-slate-400 text-center">
+                              Showing first 10 of {extractedData.length} entries. All entries will be saved to Firebase.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-green-300 dark:border-green-700">
+                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">JSON Data (Preview):</p>
+                        <pre className="text-xs text-slate-600 dark:text-slate-400 overflow-x-auto max-h-40 bg-slate-50 dark:bg-slate-900 p-3 rounded-lg">
+                          {JSON.stringify(extractedData.slice(0, 3), null, 2)}
+                          {extractedData.length > 3 && '\n...\n' + (extractedData.length - 3) + ' more entries'}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+
+                  {sanctionsMessage && (
+                    <div className={`card-modern animate-slide-up ${
+                      sanctionsMessage.type === 'success'
+                        ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400'
+                        : sanctionsMessage.type === 'info'
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400'
+                        : 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400'
+                    }`}>
+                      <div className="whitespace-pre-wrap break-words">{sanctionsMessage.text}</div>
+                      {sanctionsMessage.type === 'error' && (
+                        <div className="mt-3 text-xs opacity-75">
+                          Check browser console (F12) for detailed error logs
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  
+                </>
+              )}
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   )
