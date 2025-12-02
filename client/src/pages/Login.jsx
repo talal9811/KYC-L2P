@@ -164,16 +164,12 @@ function Login() {
           </form>
 
           {/* Info Banner */}
-          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-            <p className="text-xs text-blue-800 dark:text-blue-300 text-center leading-relaxed">
-              <strong className="font-semibold">Demo Access:</strong> Sign in with any user created in Firebase Authentication (Email/Password provider)
-            </p>
-          </div>
+         
         </div>
 
         {/* Footer */}
         <p className="text-center mt-6 text-slate-300 text-sm">
-          © 2024 KYC Watchlist Checker. All rights reserved.
+          © 2025 KYC Watchlist Checker. All rights reserved.
         </p>
       </div>
     </div>
