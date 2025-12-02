@@ -5,9 +5,11 @@
   "description": "KYC Watchlist Checker Demo Application",
   "scripts": {
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "start": "cd server && npm start",
     "server": "cd server && npm start",
     "client": "cd client && npm run dev",
-    "dev": "npm run server & npm run client"
+    "dev": "npm run server & npm run client",
+    "build": "cd client && npm run build"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",

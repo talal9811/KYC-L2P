@@ -158,7 +158,7 @@ function Login() {
                   Authenticating...
                 </span>
               ) : (
-                'Sign In'
+                'Sign In..'
               )}
             </button>
           </form>
