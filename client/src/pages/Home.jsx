@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
-import { collection, addDoc, getDocs } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { collection, addDoc, getDocs, deleteDoc } from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '../firebase/firebase'
 import { Upload, FileSearch, CheckCircle2, Zap, Shield, Search, FileText, LogOut, Menu, X, User, Calendar, Globe, CreditCard, AlertTriangle, CheckCircle, XCircle, Settings, Database, Moon, Sun } from 'lucide-react'
 import jsPDF from 'jspdf'
@@ -29,7 +29,7 @@ function Home() {
   const [watchlistFileName, setWatchlistFileName] = useState('')
   const [rawEntryText, setRawEntryText] = useState('')
   const [rawEntryMessage, setRawEntryMessage] = useState(null)
-  const [sanctionsHtmlFile, setSanctionsHtmlFile] = useState(null)
+  const [sanctionsJsonFile, setSanctionsJsonFile] = useState(null)
   const [sanctionsMessage, setSanctionsMessage] = useState(null)
   const [sanctionsSaving, setSanctionsSaving] = useState(false)
   const [sanctionsLoading, setSanctionsLoading] = useState(false)
@@ -57,20 +57,50 @@ function Home() {
     })
   }
 
+  // Helper function to extract numeric ID from strings that might contain prefixes
+  // Handles cases like "الرقم المدني: 307092900239" -> "307092900239"
+  const extractIdNumber = (idString) => {
+    if (!idString || idString === 'N/A') return ''
+    
+    const str = String(idString).trim()
+    
+    // If the string contains a colon, try to extract the part after it
+    if (str.includes(':')) {
+      const parts = str.split(':')
+      // Get the last part after the colon and trim it
+      const afterColon = parts[parts.length - 1].trim()
+      // If it's a valid number (or contains numbers), use it
+      if (afterColon && /[\d]/.test(afterColon)) {
+        // Extract all digits and preserve leading zeros by keeping the numeric part
+        const numericPart = afterColon.replace(/[^\d]/g, '')
+        if (numericPart) {
+          return numericPart
+        }
+      }
+    }
+    
+    // Try to extract just the numeric part (preserving leading zeros)
+    // This handles cases where numbers are mixed with text
+    const numericMatch = str.match(/\d+/)
+    if (numericMatch) {
+      // Find the longest sequence of digits
+      const allNumericMatches = str.match(/\d+/g)
+      if (allNumericMatches && allNumericMatches.length > 0) {
+        // Return the longest numeric sequence (most likely the ID)
+        return allNumericMatches.reduce((a, b) => a.length > b.length ? a : b)
+      }
+    }
+    
+    // If no numeric part found, return the original string trimmed
+    return str
+  }
+
   const handleCheckWatchlist = async (e) => {
     e.preventDefault()
     setLoading(true)
     setCheckResult(null)
 
     try {
-      if (!formData.fullName || !formData.fullName.trim()) {
-        setCheckResult({ 
-          error: 'Full name is required',
-          status: 'ERROR'
-        })
-        return
-      }
-
       // Query Firebase sanctions collection
       const sanctionsRef = collection(db, 'sanctions')
       const snapshot = await getDocs(sanctionsRef)
@@ -101,28 +131,72 @@ function Home() {
       })
 
       console.log(`Checking against ${allEntries.length} entries from Firebase`)
+      console.log('Search criteria:', { 
+        fullName: formData.fullName, 
+        idNumber: formData.idNumber, 
+        nationality: formData.nationality 
+      })
 
       // Search for matches
-      const searchName = formData.fullName.toLowerCase().trim()
-      const searchId = formData.idNumber?.toLowerCase().trim() || ''
+      const searchName = formData.fullName?.toLowerCase().trim() || ''
+      const searchId = formData.idNumber?.trim() || '' // Don't lowercase ID numbers to preserve leading zeros
       const searchNationality = formData.nationality?.toLowerCase().trim() || ''
+      
+      // Extract numeric ID from search term (in case user pastes with prefix)
+      const normalizedSearchId = searchId ? extractIdNumber(searchId) : ''
+      
+      console.log('Search values:', { searchName, searchId, normalizedSearchId, searchNationality })
 
       const matches = allEntries.filter(entry => {
-        // Name matching (case-insensitive, partial match)
-        const entryName = (entry.name || '').toLowerCase().trim()
-        const nameMatch = entryName.includes(searchName) || searchName.includes(entryName)
+        // Name matching (case-insensitive, partial match) - only if name is provided
+        let nameMatch = true
+        if (searchName) {
+          const entryName = String(entry.name || '').toLowerCase().trim()
+          nameMatch = entryName.includes(searchName) || searchName.includes(entryName)
+        }
         
-        // ID matching (if provided)
+        // ID matching (if provided) - check both id and idNumber fields
+        // Extract numeric ID from entry and compare with normalized search ID
         let idMatch = true
-        if (searchId && entry.id && entry.id !== 'N/A') {
-          const entryId = (entry.id || '').toLowerCase().trim()
-          idMatch = entryId === searchId || entryId.includes(searchId) || searchId.includes(entryId)
+        if (normalizedSearchId) {
+          // Get ID from either field
+          const entryIdValue = entry.id || entry.idNumber
+          if (entryIdValue && entryIdValue !== 'N/A' && String(entryIdValue).trim() !== '') {
+            // Extract numeric ID from entry (handles Arabic prefixes like "الرقم المدني: 307092900239")
+            const normalizedEntryId = extractIdNumber(entryIdValue)
+            
+            // Compare normalized IDs
+            idMatch = normalizedEntryId === normalizedSearchId
+            
+            // Debug logging for ID matches
+            if (idMatch) {
+              console.log('ID match found:', { 
+                searchId, 
+                normalizedSearchId,
+                entryIdValue,
+                normalizedEntryId, 
+                entryName: entry.name
+              })
+            } else {
+              // Log when IDs don't match for debugging
+              console.log('ID comparison:', {
+                searchId,
+                normalizedSearchId,
+                entryIdValue,
+                normalizedEntryId,
+                match: false
+              })
+            }
+          } else {
+            // If search ID is provided but entry has no ID, don't match
+            idMatch = false
+          }
         }
 
         // Nationality matching (if provided)
         let nationalityMatch = true
         if (searchNationality && entry.nationality && entry.nationality !== 'N/A') {
-          const entryNationality = (entry.nationality || '').toLowerCase().trim()
+          const entryNationality = String(entry.nationality || '').toLowerCase().trim()
           nationalityMatch = entryNationality.includes(searchNationality) || searchNationality.includes(entryNationality)
         }
 
@@ -140,6 +214,12 @@ function Home() {
         totalEntriesChecked: allEntries.length
       }
 
+      console.log('Search results:', { 
+        matchesFound: matches.length, 
+        totalEntries: allEntries.length,
+        matches: matches.map(m => ({ name: m.name, id: m.id || m.idNumber }))
+      })
+
       setCheckResult(result)
     } catch (error) {
       console.error('Error checking watchlist:', error)
@@ -154,11 +234,6 @@ function Home() {
 
   const handleGenerateCertificate = () => {
     try {
-      if (!formData.fullName || !formData.fullName.trim()) {
-        alert('Please enter a full name before generating a certificate')
-        return
-      }
-
       console.log('Generating certificate for:', formData)
 
       // Create PDF document
@@ -265,6 +340,7 @@ function Home() {
         // Get nationality in Arabic (or use provided)
         const nationality = formData.nationality || 'N/A'
         const idNumber = formData.idNumber || 'N/A'
+        const fullName = formData.fullName || 'N/A'
         
         // Arabic template text with placeholders
         const arabicTemplate = `دولة الكويت  
@@ -275,7 +351,7 @@ function Home() {
 
 تحية طيبه وبعد،، 
 
-يرجى العلم بأنه تم الكشف على العميل ${formData.fullName} ، ${nationality} الجنسية ،.ب.م/${idNumber} وقد تبين من خلال الكشف عليه أنه غير مدرج ضمن الأسماء المحظور التعامل معهم والمرسلة إلينا من هيئة اسواق المال أن المعلن عنهم كأفراد أو كيانات أو جماعات إرهابية أو المدرجين ضمن قائمة الأشخاص أو الكيانات المدرجين على قائمة الجزاءت الموحده لمجلس الأمن التابع للأمم المتحدة ، أو أنه ضمن الأشخاص أو الكيانات التى أدرجتها دولة الكويت على قائم الإرهاب  
+يرجى العلم بأنه تم الكشف على العميل ${fullName} ، ${nationality} الجنسية ،.ب.م/${idNumber} وقد تبين من خلال الكشف عليه أنه غير مدرج ضمن الأسماء المحظور التعامل معهم والمرسلة إلينا من هيئة اسواق المال أن المعلن عنهم كأفراد أو كيانات أو جماعات إرهابية أو المدرجين ضمن قائمة الأشخاص أو الكيانات المدرجين على قائمة الجزاءت الموحده لمجلس الأمن التابع للأمم المتحدة ، أو أنه ضمن الأشخاص أو الكيانات التى أدرجتها دولة الكويت على قائم الإرهاب  
 
 مسؤول الدعم الفنى`
 
@@ -609,91 +685,66 @@ function Home() {
     }
   }
 
-  // Parse HTML file and extract table data
-  const handleSanctionsHtmlUpload = async (event) => {
+  // Parse JSON file and extract data
+  const handleSanctionsJsonUpload = async (event) => {
     const file = event.target.files?.[0]
     if (!file) return
 
-    if (file.type !== 'text/html' && !file.name.endsWith('.html')) {
+    if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
       setSanctionsMessage({
         type: 'error',
-        text: 'Please upload an HTML file'
+        text: 'Please upload a JSON file'
       })
       return
     }
 
-    setSanctionsHtmlFile(file)
+    setSanctionsJsonFile(file)
     setSanctionsLoading(true)
     setSanctionsMessage(null)
     setExtractedData(null)
 
     try {
-      // Read HTML file as text
-      const htmlText = await file.text()
+      // Read JSON file as text
+      const jsonText = await file.text()
       
-      // Parse HTML using DOMParser
-      const parser = new DOMParser()
-      const doc = parser.parseFromString(htmlText, 'text/html')
+      // Parse JSON
+      const parsedData = JSON.parse(jsonText)
       
-      // Find the table
-      const table = doc.querySelector('table')
-      if (!table) {
-        throw new Error('No table found in HTML file')
+      // Check if it's an array
+      if (!Array.isArray(parsedData)) {
+        throw new Error('JSON file must contain an array of entries')
       }
 
-      // Get table rows (skip header row)
-      const rows = Array.from(table.querySelectorAll('tbody tr'))
-      
-      if (rows.length === 0) {
-        throw new Error('No data rows found in table')
+      if (parsedData.length === 0) {
+        throw new Error('JSON file contains an empty array')
       }
 
-      // Extract data from each row
-      const extractedRows = rows.map((row, index) => {
-        const cells = Array.from(row.querySelectorAll('td'))
-        
-        if (cells.length < 5) {
-          console.warn(`Row ${index + 1} has insufficient columns`)
-          return null
-        }
-
-        // Extract data from cells
-        // Column 0: Number (الرقم)
-        // Column 1: Name (الاسم)
-        // Column 2: Nationality (الجنسية) - may contain "الجنسية" text
-        // Column 3: Birth Date (المواليد)
-        // Column 4: ID (الرقم المدني)
-        
-        const name = cells[1]?.textContent?.trim() || ''
-        let nationality = cells[2]?.textContent?.trim() || ''
-        // Remove "الجنسية" from nationality if present
-        nationality = nationality.replace(/\s*الجنسية\s*/g, '').trim()
-        const birth = cells[3]?.textContent?.trim() || ''
-        const id = cells[4]?.textContent?.trim() || ''
-
+      // Validate and normalize entries
+      const extractedRows = parsedData.map((entry) => {
+        // Ensure entry has required fields with defaults
         return {
-          name: name || 'N/A',
-          nationality: nationality || 'N/A',
-          birth: birth || 'N/A',
-          id: id || 'N/A'
+          name: entry.name || entry.fullName || 'N/A',
+          nationality: entry.nationality || 'N/A',
+          birth: entry.birth || entry.dateOfBirth || entry.dob || 'N/A',
+          id: entry.id || entry.idNumber || 'N/A'
         }
-      }).filter(row => row !== null) // Remove null entries
+      })
 
       if (extractedRows.length === 0) {
-        throw new Error('No valid data extracted from table')
+        throw new Error('No valid entries found in JSON file')
       }
 
       // Set extracted data as array
       setExtractedData(extractedRows)
       setSanctionsMessage({
         type: 'success',
-        text: `HTML processed successfully! Extracted ${extractedRows.length} entries from the table.`
+        text: `JSON processed successfully! Loaded ${extractedRows.length} entries from the file.`
       })
     } catch (error) {
-      console.error('Error processing HTML:', error)
+      console.error('Error processing JSON:', error)
       setSanctionsMessage({
         type: 'error',
-        text: error.message || 'Failed to process HTML file'
+        text: error.message || 'Failed to process JSON file. Please ensure it is valid JSON with an array of entries.'
       })
     } finally {
       setSanctionsLoading(false)
@@ -741,10 +792,10 @@ function Home() {
       return
     }
 
-    if (!sanctionsHtmlFile) {
+    if (!sanctionsJsonFile) {
       setSanctionsMessage({
         type: 'error',
-        text: 'Please upload an HTML file first'
+        text: 'Please upload a JSON file first'
       })
       return
     }
@@ -758,35 +809,99 @@ function Home() {
     }
 
     setSanctionsSaving(true)
+    let totalDocsCount = 0
     try {
-      // Upload HTML file to Firebase Storage
+      // Delete old files from Firebase Storage and Firestore
+      setSanctionsMessage({
+        type: 'info',
+        text: 'Removing old files...'
+      })
+
+      const sanctionsRef = collection(db, 'sanctions')
+      const existingDocs = await getDocs(sanctionsRef)
+      
+      totalDocsCount = existingDocs.size
+      
+      const deletePromises = []
+      const fileDeletionResults = []
+
+      existingDocs.forEach((doc) => {
+        const data = doc.data()
+        
+        // Delete file from Firebase Storage if path exists
+        if (data.jsonStoragePath) {
+          const oldStorageRef = ref(storage, data.jsonStoragePath)
+          fileDeletionResults.push(
+            deleteObject(oldStorageRef)
+              .then(() => {
+                console.log('Deleted old file from Storage:', data.jsonStoragePath)
+                return true
+              })
+              .catch((error) => {
+                // If file doesn't exist, that's okay - just log it
+                if (error.code === 'storage/object-not-found') {
+                  console.log('File not found in Storage (may have been already deleted):', data.jsonStoragePath)
+                } else {
+                  console.error('Error deleting file from Storage:', error)
+                }
+                return false
+              })
+          )
+        }
+        
+        // Delete document from Firestore
+        deletePromises.push(
+          deleteDoc(doc.ref)
+            .then(() => {
+              console.log('Deleted old document from Firestore:', doc.id)
+            })
+            .catch((error) => {
+              console.error('Error deleting document from Firestore:', error)
+              throw error
+            })
+        )
+      })
+
+      // Wait for all deletions to complete
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises)
+        const successfulFileDeletions = (await Promise.all(fileDeletionResults)).filter(Boolean).length
+        console.log(`Deleted ${successfulFileDeletions} file(s) from Storage and ${totalDocsCount} document(s) from Firestore`)
+        
+        if (totalDocsCount > 0) {
+          setSanctionsMessage({
+            type: 'info',
+            text: `Removed ${totalDocsCount} old file(s). Uploading new file...`
+          })
+        }
+      }
+
+      // Upload new JSON file to Firebase Storage
       const timestamp = Date.now()
-      const fileName = `sanctions/${timestamp}_${sanctionsHtmlFile.name}`
+      const fileName = `sanctions/${timestamp}_${sanctionsJsonFile.name}`
       const storageRef = ref(storage, fileName)
       
       setSanctionsMessage({
         type: 'info',
-        text: 'Uploading HTML file to Firebase Storage...'
+        text: 'Uploading new JSON file to Firebase Storage...'
       })
 
       console.log('Starting upload to Storage:', fileName)
-      console.log('File size:', sanctionsHtmlFile.size, 'bytes')
+      console.log('File size:', sanctionsJsonFile.size, 'bytes')
       console.log('User authenticated:', isAuthenticated)
       console.log('User email:', user?.email)
       console.log('Extracted entries:', extractedData.length)
 
-      await uploadBytes(storageRef, sanctionsHtmlFile)
+      await uploadBytes(storageRef, sanctionsJsonFile)
       console.log('Upload to Storage successful')
       
-      const htmlDownloadUrl = await getDownloadURL(storageRef)
-      console.log('Download URL obtained:', htmlDownloadUrl)
+      const jsonDownloadUrl = await getDownloadURL(storageRef)
+      console.log('Download URL obtained:', jsonDownloadUrl)
 
       // Convert extracted data array to JSON
       const jsonData = JSON.stringify(extractedData, null, 2)
 
-      // Save to Firestore with extracted data as JSON array
-      const sanctionsRef = collection(db, 'sanctions')
-      
+      // Save to Firestore with extracted data as JSON array (sanctionsRef already defined above)
       const firestoreData = {
         // Extracted data as array
         entries: extractedData,
@@ -794,11 +909,11 @@ function Home() {
         // JSON representation
         jsonData: jsonData,
         // File metadata
-        htmlFileName: sanctionsHtmlFile.name,
-        htmlFileUrl: htmlDownloadUrl,
-        htmlStoragePath: fileName,
-        fileSize: sanctionsHtmlFile.size,
-        fileType: sanctionsHtmlFile.type,
+        jsonFileName: sanctionsJsonFile.name,
+        jsonFileUrl: jsonDownloadUrl,
+        jsonStoragePath: fileName,
+        fileSize: sanctionsJsonFile.size,
+        fileType: sanctionsJsonFile.type,
         uploadedBy: user?.email || 'unknown',
         uploadedByUid: user?.uid || 'unknown',
         uploadedAt: new Date().toISOString(),
@@ -809,13 +924,14 @@ function Home() {
       const docRef = await addDoc(sanctionsRef, firestoreData)
       console.log('Firestore save successful, document ID:', docRef.id)
 
+      const oldFilesText = totalDocsCount > 0 ? ` Removed ${totalDocsCount} old file(s) and ` : ' '
       setSanctionsMessage({
         type: 'success',
-        text: `Successfully saved! HTML file uploaded to Storage and ${extractedData.length} entries saved to Firestore as JSON. Document ID: ${docRef.id}`
+        text: `Successfully saved!${oldFilesText}Uploaded new JSON file to Storage and ${extractedData.length} entries saved to Firestore. Document ID: ${docRef.id}`
       })
       
       // Clear the form after successful save
-      setSanctionsHtmlFile(null)
+      setSanctionsJsonFile(null)
       setExtractedData(null)
     } catch (error) {
       console.error('Error saving to Firebase:', error)
@@ -1040,7 +1156,7 @@ function Home() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="md:col-span-2">
                     <label htmlFor="fullName" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Full Name <span className="text-red-500">*</span>
+                      Full Name
                     </label>
                     <div className="relative">
                       <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -1050,9 +1166,8 @@ function Home() {
                         type="text"
                         value={formData.fullName}
                         onChange={handleInputChange}
-                        required
                         className="input-modern pl-12"
-                        placeholder="Enter full name"
+                        placeholder="Enter full name (optional)"
                       />
                     </div>
                   </div>
@@ -1169,7 +1284,7 @@ function Home() {
                                 <CreditCard className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                                 <div>
                                   <p className="text-xs text-slate-500 dark:text-slate-400">ID Number</p>
-                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{match.id}</p>
+                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{match.id || match.idNumber || 'N/A'}</p>
                                 </div>
                               </div>
                             </div>
@@ -1249,10 +1364,10 @@ function Home() {
                           </div>
                         </div>
                         <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">
-                          Upload HTML File
+                          Upload JSON File
                         </h3>
                         <p className="text-slate-600 dark:text-slate-400 text-sm mb-6">
-                          Drop your HTML file here or browse to upload
+                          Drop your JSON file here or browse to upload
                         </p>
                         
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -1261,15 +1376,15 @@ function Home() {
                               <Upload className="h-4 w-4" /> Browse Files
                             </span>
                             <input 
-                              id="sanctions-html-upload"
+                              id="sanctions-json-upload"
                               type="file" 
-                              accept=".html,text/html" 
-                              onChange={handleSanctionsHtmlUpload} 
+                              accept=".json,application/json" 
+                              onChange={handleSanctionsJsonUpload} 
                               className="hidden" 
                             />
                           </label>
                           
-                          {sanctionsHtmlFile && (
+                          {sanctionsJsonFile && (
                             <button 
                               onClick={handleSaveSanctionsToFirebase}
                               disabled={sanctionsSaving || sanctionsLoading || !extractedData || !Array.isArray(extractedData)} 
@@ -1296,10 +1411,10 @@ function Home() {
                           )}
                         </div>
                         
-                        {sanctionsHtmlFile && (
+                        {sanctionsJsonFile && (
                           <div className="mt-6 p-4 bg-white dark:bg-slate-800 rounded-xl border border-purple-200 dark:border-purple-700">
                             <p className="text-sm text-slate-600 dark:text-slate-400">
-                              Selected: <span className="font-semibold text-slate-900 dark:text-slate-100">{sanctionsHtmlFile.name}</span>
+                              Selected: <span className="font-semibold text-slate-900 dark:text-slate-100">{sanctionsJsonFile.name}</span>
                             </p>
                           </div>
                         )}
@@ -1315,11 +1430,11 @@ function Home() {
                         <ul className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
                           <li className="flex items-start gap-2">
                             <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                            <span>HTML table parsing</span>
+                            <span>JSON file parsing</span>
                           </li>
                           <li className="flex items-start gap-2">
                             <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                            <span>JSON conversion</span>
+                            <span>Data validation & normalization</span>
                           </li>
                           <li className="flex items-start gap-2">
                             <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
@@ -1338,7 +1453,7 @@ function Home() {
                     <div className="text-center py-8">
                       <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
                       <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 font-medium">
-                        Processing HTML and extracting table data...
+                        Processing JSON file and validating data...
                       </p>
                     </div>
                   )}
