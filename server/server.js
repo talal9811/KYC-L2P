@@ -17,6 +17,10 @@ const JWT_SECRET = 'demo-secret-key-change-in-production'; // Demo only!
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
+// Serve static files from client build
+const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
+app.use(express.static(clientDistPath));
+
 // Ensure data directory exists
 const dataDir = path.join(__dirname, 'data');
 const watchlistPath = path.join(dataDir, 'watchlist.json');
@@ -467,6 +471,16 @@ app.put('/api/watchlist', verifyToken, async (req, res) => {
     console.error('Error saving watchlist:', error);
     res.status(500).json({ error: 'Failed to save watchlist' });
   }
+});
+
+// Catch-all handler: send back React's index.html file for SPA routing
+app.get('*', (req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
+  res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
 // Start server
