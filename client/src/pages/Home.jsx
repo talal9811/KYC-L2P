@@ -1007,12 +1007,12 @@ function Home() {
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
             <img 
-              src="/svgviewer-png-output.png" 
+              src="/logoshort.png" 
               alt="Logo" 
-              className="w-10 h-10 object-contain"
+              className="w-16 h-16 object-contain"
             />
             <div>
-              <h1 className="text-lg font-bold gradient-text">KYC L2P Checker</h1>
+              <h1 className="text-lg font-bold gradient-text"> L2P Checker</h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">Compliance System</p>
             </div>
           </div>
@@ -1100,7 +1100,7 @@ function Home() {
             <div className="flex items-center gap-4">
               {/* Logo */}
               <img 
-                src="/svgviewer-png-output.png" 
+                src="/logo.png" 
                 alt="Logo" 
                 className="h-10 w-auto object-contain hidden sm:block"
               />
@@ -1132,11 +1132,11 @@ function Home() {
             <div className="card-modern bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
+                  <h2 className="text-2xl font-bold mb-2">L2P System Checker</h2>
                   <p className="text-blue-100">Verify individuals against the watchlist database</p>
                 </div>
                 <div className="hidden md:block">
-                  <Shield className="w-24 h-24 text-white/20" />
+                  <img src="/logoshort.png" alt="Logo" className="h-28 w-auto object-contain" />
                 </div>
               </div>
             </div>

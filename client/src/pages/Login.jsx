@@ -70,12 +70,10 @@ function Login() {
         <div className="glass-card rounded-3xl p-8 md:p-10 shadow-2xl animate-fade-in">
           {/* Logo/Icon Section */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 mb-4 shadow-lg">
-              <Shield className="w-10 h-10 text-white" />
+            <div className="inline-flex items-center justify-center w-auto h-auto  ">
+                <img src="/logo.png" alt="Logo" className="w-48 h-28 object-contain" />
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-2">
-              <span className="gradient-text">KYC L2P Checker</span>
-            </h1>
+        
             <p className="text-slate-600 dark:text-slate-400 text-sm">
               Secure Compliance Verification System
             </p>
@@ -85,7 +83,7 @@ function Login() {
             {/* Email Input */}
             <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                Email Address
+                Email 
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -158,7 +156,7 @@ function Login() {
                   Authenticating...
                 </span>
               ) : (
-                'Sign In..'
+                'Sign In'
               )}
             </button>
           </form>
