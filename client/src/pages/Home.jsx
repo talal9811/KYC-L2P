@@ -195,9 +195,15 @@ function Home() {
 
         // Nationality matching (if provided)
         let nationalityMatch = true
-        if (searchNationality && entry.nationality && entry.nationality !== 'N/A') {
-          const entryNationality = String(entry.nationality || '').toLowerCase().trim()
-          nationalityMatch = entryNationality.includes(searchNationality) || searchNationality.includes(entryNationality)
+        if (searchNationality) {
+          // If user provided a nationality, entry must have a matching nationality
+          if (entry.nationality && entry.nationality !== 'N/A') {
+            const entryNationality = String(entry.nationality || '').toLowerCase().trim()
+            nationalityMatch = entryNationality.includes(searchNationality) || searchNationality.includes(entryNationality)
+          } else {
+            // Entry doesn't have a nationality, so it doesn't match
+            nationalityMatch = false
+          }
         }
 
         return nameMatch && idMatch && nationalityMatch
