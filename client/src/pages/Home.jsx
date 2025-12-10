@@ -238,7 +238,7 @@ function Home() {
     }
   }
 
-  const handleGenerateCertificate = () => {
+  const handleGenerateCertificate = async () => {
     try {
       console.log('Generating certificate for:', formData)
 
@@ -258,15 +258,6 @@ function Home() {
       const logoImg = new Image()
       logoImg.crossOrigin = 'anonymous'
       logoImg.src = '/logo.png'
-      
-      logoImg.onload = async () => {
-        await generatePDFWithLogo(doc, logoImg, pageWidth, pageHeight, margin)
-      }
-      
-      logoImg.onerror = async () => {
-        // Logo not found, continue without it
-        await generatePDFContent(doc, y, pageWidth, pageHeight, margin)
-      }
 
       // Function to generate PDF with logo
       const generatePDFWithLogo = async (doc, logoImg, pageWidth, pageHeight, margin) => {
@@ -415,14 +406,21 @@ function Home() {
         console.log('PDF certificate generated and downloaded:', filename)
       }
       
-      // Wait a bit for async operations, then generate
-      setTimeout(async () => {
-        if (logoImg.complete) {
-          await generatePDFWithLogo(doc, logoImg, pageWidth, pageHeight, margin)
-        } else {
-          await generatePDFContent(doc, y, pageWidth, pageHeight, margin)
-        }
-      }, 100)
+      const waitForLogoLoad = () => new Promise((resolve) => {
+        logoImg.onload = () => resolve(true)
+        logoImg.onerror = () => resolve(false)
+      })
+
+      // Generate once: use logo when it loads, fall back otherwise
+      const logoReady = logoImg.complete && logoImg.naturalWidth > 0
+        ? true
+        : await waitForLogoLoad()
+
+      if (logoReady) {
+        await generatePDFWithLogo(doc, logoImg, pageWidth, pageHeight, margin)
+      } else {
+        await generatePDFContent(doc, y, pageWidth, pageHeight, margin)
+      }
 
     } catch (error) {
       console.error('Error generating certificate:', error)
