@@ -400,8 +400,13 @@ function Home() {
         doc.text('This certificate is generated for informational purposes only.', pageWidth / 2, pageHeight - 20, { align: 'center' })
         doc.text(`Generated on: ${formattedDate}`, pageWidth / 2, pageHeight - 15, { align: 'center' })
 
-        // Save PDF
-        const filename = `clearance-certificate-${certificateNumber}.pdf`
+        // Save PDF - use full name as filename
+        // Sanitize filename: remove invalid characters for file names
+        let sanitizedFullName = fullName && fullName !== 'N/A' 
+          ? fullName.replace(/[<>:"/\\|?*]/g, '').trim() 
+          : ''
+        sanitizedFullName = sanitizedFullName || `certificate-${certificateNumber}`
+        const filename = `${sanitizedFullName}.pdf`
         doc.save(filename)
         console.log('PDF certificate generated and downloaded:', filename)
       }
