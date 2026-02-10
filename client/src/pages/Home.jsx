@@ -13,13 +13,13 @@ function Home() {
   const { logout, getToken, user, isAuthenticated } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
-  
+
   const [formData, setFormData] = useState({
     fullName: '',
     nationality: '',
     idNumber: ''
   })
-  
+
   const [checkResult, setCheckResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [watchlistText, setWatchlistText] = useState('')
@@ -61,9 +61,9 @@ function Home() {
   // Handles cases like "الرقم المدني: 307092900239" -> "307092900239"
   const extractIdNumber = (idString) => {
     if (!idString || idString === 'N/A') return ''
-    
+
     const str = String(idString).trim()
-    
+
     // If the string contains a colon, try to extract the part after it
     if (str.includes(':')) {
       const parts = str.split(':')
@@ -78,7 +78,7 @@ function Home() {
         }
       }
     }
-    
+
     // Try to extract just the numeric part (preserving leading zeros)
     // This handles cases where numbers are mixed with text
     const numericMatch = str.match(/\d+/)
@@ -90,7 +90,7 @@ function Home() {
         return allNumericMatches.reduce((a, b) => a.length > b.length ? a : b)
       }
     }
-    
+
     // If no numeric part found, return the original string trimmed
     return str
   }
@@ -104,7 +104,7 @@ function Home() {
       // Query Firebase sanctions collection
       const sanctionsRef = collection(db, 'sanctions')
       const snapshot = await getDocs(sanctionsRef)
-      
+
       // Get all entries from all documents
       const allEntries = []
       snapshot.forEach((doc) => {
@@ -131,20 +131,20 @@ function Home() {
       })
 
       console.log(`Checking against ${allEntries.length} entries from Firebase`)
-      console.log('Search criteria:', { 
-        fullName: formData.fullName, 
-        idNumber: formData.idNumber, 
-        nationality: formData.nationality 
+      console.log('Search criteria:', {
+        fullName: formData.fullName,
+        idNumber: formData.idNumber,
+        nationality: formData.nationality
       })
 
       // Search for matches
       const searchName = formData.fullName?.toLowerCase().trim() || ''
       const searchId = formData.idNumber?.trim() || '' // Don't lowercase ID numbers to preserve leading zeros
       const searchNationality = formData.nationality?.toLowerCase().trim() || ''
-      
+
       // Extract numeric ID from search term (in case user pastes with prefix)
       const normalizedSearchId = searchId ? extractIdNumber(searchId) : ''
-      
+
       console.log('Search values:', { searchName, searchId, normalizedSearchId, searchNationality })
 
       const matches = allEntries.filter(entry => {
@@ -154,7 +154,7 @@ function Home() {
           const entryName = String(entry.name || '').toLowerCase().trim()
           nameMatch = entryName.includes(searchName) || searchName.includes(entryName)
         }
-        
+
         // ID matching (if provided) - check both id and idNumber fields
         // Extract numeric ID from entry and compare with normalized search ID
         let idMatch = true
@@ -164,17 +164,17 @@ function Home() {
           if (entryIdValue && entryIdValue !== 'N/A' && String(entryIdValue).trim() !== '') {
             // Extract numeric ID from entry (handles Arabic prefixes like "الرقم المدني: 307092900239")
             const normalizedEntryId = extractIdNumber(entryIdValue)
-            
+
             // Compare normalized IDs
             idMatch = normalizedEntryId === normalizedSearchId
-            
+
             // Debug logging for ID matches
             if (idMatch) {
-              console.log('ID match found:', { 
-                searchId, 
+              console.log('ID match found:', {
+                searchId,
                 normalizedSearchId,
                 entryIdValue,
-                normalizedEntryId, 
+                normalizedEntryId,
                 entryName: entry.name
               })
             } else {
@@ -220,8 +220,8 @@ function Home() {
         totalEntriesChecked: allEntries.length
       }
 
-      console.log('Search results:', { 
-        matchesFound: matches.length, 
+      console.log('Search results:', {
+        matchesFound: matches.length,
         totalEntries: allEntries.length,
         matches: matches.map(m => ({ name: m.name, id: m.id || m.idNumber }))
       })
@@ -229,7 +229,7 @@ function Home() {
       setCheckResult(result)
     } catch (error) {
       console.error('Error checking watchlist:', error)
-      setCheckResult({ 
+      setCheckResult({
         error: error.message || 'Failed to check watchlist',
         status: 'ERROR'
       })
@@ -262,13 +262,13 @@ function Home() {
       // Function to generate PDF with logo
       const generatePDFWithLogo = async (doc, logoImg, pageWidth, pageHeight, margin) => {
         let y = margin
-        
+
         // Add logo
         const logoWidth = 50
         const logoHeight = (logoImg.height / logoImg.width) * logoWidth
         doc.addImage(logoImg, 'PNG', (pageWidth - logoWidth) / 2, y, logoWidth, logoHeight)
         y += logoHeight + 15
-        
+
         await generatePDFContent(doc, y, pageWidth, pageHeight, margin)
       }
 
@@ -293,9 +293,9 @@ function Home() {
         titleDiv.style.paddingBottom = '15px'
         titleDiv.textContent = arabicTitle
         document.body.appendChild(titleDiv)
-        
+
         try {
-          const titleCanvas = await html2canvas(titleDiv, { 
+          const titleCanvas = await html2canvas(titleDiv, {
             scale: 3,
             useCORS: true,
             backgroundColor: '#ffffff',
@@ -304,7 +304,7 @@ function Home() {
           const titleImgData = titleCanvas.toDataURL('image/png')
           const titleImgWidth = titleCanvas.width / 10 // Convert pixels to mm
           const titleImgHeight = titleCanvas.height / 10
-          
+
           // Center the title
           const titleX = (pageWidth - titleImgWidth) / 2
           doc.addImage(titleImgData, 'PNG', titleX, y, titleImgWidth, titleImgHeight)
@@ -321,24 +321,24 @@ function Home() {
         doc.setFontSize(10)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(102, 102, 102) // Gray
-        doc.text(`Certificate Number: ${certificateNumber}`, margin, y, { align: 'left' })
+        // doc.text(`Certificate Number: ${certificateNumber}`, margin, y, { align: 'left' })
         y += 20
 
         // Arabic Clearance Statement Template
         y += 10
-        
+
         // Format date in Arabic format (DD/MM/YYYY)
         const arabicDate = new Date().toLocaleDateString('ar-EG', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric'
         }).replace(/\//g, '/')
-        
+
         // Get nationality in Arabic (or use provided)
         const nationality = formData.nationality || 'N/A'
         const idNumber = formData.idNumber || 'N/A'
         const fullName = formData.fullName || 'N/A'
-        
+
         // Arabic template text with placeholders
         const arabicTemplate = `دولة الكويت  
 
@@ -348,7 +348,9 @@ function Home() {
 
 تحية طيبه وبعد،، 
 
-يرجى العلم بأنه تم الكشف على العميل ${fullName} ، ${nationality} الجنسية ،.ب.م/${idNumber} وقد تبين من خلال الكشف عليه أنه غير مدرج ضمن الأسماء المحظور التعامل معهم والمرسلة إلينا من هيئة اسواق المال أن المعلن عنهم كأفراد أو كيانات أو جماعات إرهابية أو المدرجين ضمن قائمة الأشخاص أو الكيانات المدرجين على قائمة الجزاءت الموحده لمجلس الأمن التابع للأمم المتحدة ، أو أنه ضمن الأشخاص أو الكيانات التى أدرجتها دولة الكويت على قائم الإرهاب  
+نفيدكم علمًا بأنه تم إجراء عملية التدقيق والفحص على العميل ${fullName}، ${nationality} الجنسية، ب.م/${idNumber} من خلال الجهات الرسمية المختصة، بما في ذلك القائمة الوطنية لدولة الكويت (لجنة تنفيذ قرارت مجلس الامن)،
+وقد تبين بعد المراجعة أن العميل غير مدرج ضمن أي من القوائم الوطنية أو قوائم العقوبات أو القوائم المحظورة المعتمدة داخل دولة الكويت، ولا توجد عليه أي قيود قانونية أو تنظيمية.
+
 
 مسؤول الدعم الفنى`
 
@@ -365,11 +367,12 @@ function Home() {
         arabicDiv.style.whiteSpace = 'pre-line'
         arabicDiv.style.lineHeight = '1.8'
         arabicDiv.style.width = '600px'
+        arabicDiv.style.paddingBottom = '30px'
         arabicDiv.textContent = arabicTemplate
         document.body.appendChild(arabicDiv)
-        
+
         try {
-          const arabicCanvas = await html2canvas(arabicDiv, { 
+          const arabicCanvas = await html2canvas(arabicDiv, {
             scale: 3, // Higher scale for better quality
             useCORS: true,
             backgroundColor: '#ffffff',
@@ -379,7 +382,7 @@ function Home() {
           const arabicImgData = arabicCanvas.toDataURL('image/png')
           const arabicImgWidth = arabicCanvas.width / 10 // Convert pixels to mm
           const arabicImgHeight = arabicCanvas.height / 10
-          
+
           // Center the Arabic text
           const arabicX = (pageWidth - arabicImgWidth) / 2
           doc.addImage(arabicImgData, 'PNG', arabicX, y, arabicImgWidth, arabicImgHeight)
@@ -402,15 +405,15 @@ function Home() {
 
         // Save PDF - use full name as filename
         // Sanitize filename: remove invalid characters for file names
-        let sanitizedFullName = fullName && fullName !== 'N/A' 
-          ? fullName.replace(/[<>:"/\\|?*]/g, '').trim() 
+        let sanitizedFullName = fullName && fullName !== 'N/A'
+          ? fullName.replace(/[<>:"/\\|?*]/g, '').trim()
           : ''
         sanitizedFullName = sanitizedFullName || `certificate-${certificateNumber}`
         const filename = `${sanitizedFullName}.pdf`
         doc.save(filename)
         console.log('PDF certificate generated and downloaded:', filename)
       }
-      
+
       const waitForLogoLoad = () => new Promise((resolve) => {
         logoImg.onload = () => resolve(true)
         logoImg.onerror = () => resolve(false)
@@ -682,9 +685,8 @@ function Home() {
       setRawEntryText('')
       setRawEntryMessage({
         type: 'success',
-        text: `Converted ${newEntries.length} row${
-          newEntries.length === 1 ? '' : 's'
-        }. Review the JSON and click "Save Watchlist" to persist the changes.`
+        text: `Converted ${newEntries.length} row${newEntries.length === 1 ? '' : 's'
+          }. Review the JSON and click "Save Watchlist" to persist the changes.`
       })
     } catch (error) {
       setRawEntryMessage({
@@ -715,10 +717,10 @@ function Home() {
     try {
       // Read JSON file as text
       const jsonText = await file.text()
-      
+
       // Parse JSON
       const parsedData = JSON.parse(jsonText)
-      
+
       // Check if it's an array
       if (!Array.isArray(parsedData)) {
         throw new Error('JSON file must contain an array of entries')
@@ -771,11 +773,11 @@ function Home() {
       console.log('User:', user)
       console.log('User UID:', user?.uid)
       console.log('User email:', user?.email)
-      
+
       // Test Firestore connection
       const testRef = collection(db, 'test')
       console.log('Firestore collection reference created:', testRef)
-      
+
       setSanctionsMessage({
         type: 'info',
         text: 'Firebase connection test completed. Check browser console (F12) for details.'
@@ -828,15 +830,15 @@ function Home() {
 
       const sanctionsRef = collection(db, 'sanctions')
       const existingDocs = await getDocs(sanctionsRef)
-      
+
       totalDocsCount = existingDocs.size
-      
+
       const deletePromises = []
       const fileDeletionResults = []
 
       existingDocs.forEach((doc) => {
         const data = doc.data()
-        
+
         // Delete file from Firebase Storage if path exists
         if (data.jsonStoragePath) {
           const oldStorageRef = ref(storage, data.jsonStoragePath)
@@ -857,7 +859,7 @@ function Home() {
               })
           )
         }
-        
+
         // Delete document from Firestore
         deletePromises.push(
           deleteDoc(doc.ref)
@@ -876,7 +878,7 @@ function Home() {
         await Promise.all(deletePromises)
         const successfulFileDeletions = (await Promise.all(fileDeletionResults)).filter(Boolean).length
         console.log(`Deleted ${successfulFileDeletions} file(s) from Storage and ${totalDocsCount} document(s) from Firestore`)
-        
+
         if (totalDocsCount > 0) {
           setSanctionsMessage({
             type: 'info',
@@ -889,7 +891,7 @@ function Home() {
       const timestamp = Date.now()
       const fileName = `sanctions/${timestamp}_${sanctionsJsonFile.name}`
       const storageRef = ref(storage, fileName)
-      
+
       setSanctionsMessage({
         type: 'info',
         text: 'Uploading new JSON file to Firebase Storage...'
@@ -903,7 +905,7 @@ function Home() {
 
       await uploadBytes(storageRef, sanctionsJsonFile)
       console.log('Upload to Storage successful')
-      
+
       const jsonDownloadUrl = await getDownloadURL(storageRef)
       console.log('Download URL obtained:', jsonDownloadUrl)
 
@@ -938,7 +940,7 @@ function Home() {
         type: 'success',
         text: `Successfully saved!${oldFilesText}Uploaded new JSON file to Storage and ${extractedData.length} entries saved to Firestore. Document ID: ${docRef.id}`
       })
-      
+
       // Clear the form after successful save
       setSanctionsJsonFile(null)
       setExtractedData(null)
@@ -948,10 +950,10 @@ function Home() {
       console.error('Error message:', error.message)
       console.error('Error stack:', error.stack)
       console.error('Full error object:', JSON.stringify(error, null, 2))
-      
+
       // Provide more detailed error messages
       let errorMessage = 'Failed to save sanctions data to Firebase'
-      
+
       // Check for specific Firebase error codes
       if (error.code) {
         switch (error.code) {
@@ -985,10 +987,10 @@ function Home() {
       } else if (error.message) {
         errorMessage = `Error: ${error.message}`
       }
-      
+
       // Show full error details in console and UI
       const fullErrorMessage = `${errorMessage}\n\nDetails:\nCode: ${error.code || 'N/A'}\nMessage: ${error.message || 'No message'}\n\nCheck browser console (F12) for more details.`
-      
+
       setSanctionsMessage({
         type: 'error',
         text: fullErrorMessage
@@ -1002,22 +1004,21 @@ function Home() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-30 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      
+
       {/* Sidebar */}
-      <aside className={`fixed left-0 top-0 h-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-700/50 z-40 transition-all duration-300 ${
-        sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'
-      }`}>
+      <aside className={`fixed left-0 top-0 h-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-700/50 z-40 transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'
+        }`}>
         <div className="h-full flex flex-col p-6">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
-            <img 
-              src="/logoshort.png" 
-              alt="Logo" 
+            <img
+              src="/logoshort.png"
+              alt="Logo"
               className="w-16 h-16 object-contain"
             />
             <div>
@@ -1036,11 +1037,10 @@ function Home() {
             </div>
             <button
               onClick={() => setShowSanctions(!showSanctions)}
-              className={`w-full px-3 py-2 rounded-xl flex items-center gap-3 transition-all ${
-                showSanctions 
-                  ? 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400' 
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-              }`}
+              className={`w-full px-3 py-2 rounded-xl flex items-center gap-3 transition-all ${showSanctions
+                ? 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
             >
               <Database className="w-5 h-5" />
               <span className="font-medium">Sanctions Upload</span>
@@ -1108,9 +1108,9 @@ function Home() {
             </button>
             <div className="flex items-center gap-4">
               {/* Logo */}
-              <img 
-                src="/logo.png" 
-                alt="Logo" 
+              <img
+                src="/logo.png"
+                alt="Logo"
                 className="h-10 w-auto object-contain hidden sm:block"
               />
               {/* Theme Toggle Button */}
@@ -1361,7 +1361,7 @@ function Home() {
                   {showSanctions ? 'Hide' : 'Show'} Upload
                 </button>
               </div>
-              
+
               {showSanctions && (
                 <div className="space-y-6 animate-fade-in">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1378,31 +1378,30 @@ function Home() {
                         <p className="text-slate-600 dark:text-slate-400 text-sm mb-6">
                           Drop your JSON file here or browse to upload
                         </p>
-                        
+
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                           <label className="cursor-pointer">
                             <span className="btn-primary bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-500/25 hover:shadow-purple-500/40 inline-flex items-center gap-2">
                               <Upload className="h-4 w-4" /> Browse Files
                             </span>
-                            <input 
+                            <input
                               id="sanctions-json-upload"
-                              type="file" 
-                              accept=".json,application/json" 
-                              onChange={handleSanctionsJsonUpload} 
-                              className="hidden" 
+                              type="file"
+                              accept=".json,application/json"
+                              onChange={handleSanctionsJsonUpload}
+                              className="hidden"
                             />
                           </label>
-                          
+
                           {sanctionsJsonFile && (
-                            <button 
+                            <button
                               onClick={handleSaveSanctionsToFirebase}
-                              disabled={sanctionsSaving || sanctionsLoading || !extractedData || !Array.isArray(extractedData)} 
-                              className={`btn-primary inline-flex items-center gap-2 ${
-                                sanctionsSaving || sanctionsLoading || !extractedData || !Array.isArray(extractedData)
-                                  ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed opacity-50" 
-                                  : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25 hover:shadow-green-500/40"
-                              }`}
-                            > 
+                              disabled={sanctionsSaving || sanctionsLoading || !extractedData || !Array.isArray(extractedData)}
+                              className={`btn-primary inline-flex items-center gap-2 ${sanctionsSaving || sanctionsLoading || !extractedData || !Array.isArray(extractedData)
+                                ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed opacity-50"
+                                : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25 hover:shadow-green-500/40"
+                                }`}
+                            >
                               {sanctionsSaving ? (
                                 <>
                                   <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1419,7 +1418,7 @@ function Home() {
                             </button>
                           )}
                         </div>
-                        
+
                         {sanctionsJsonFile && (
                           <div className="mt-6 p-4 bg-white dark:bg-slate-800 rounded-xl border border-purple-200 dark:border-purple-700">
                             <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -1429,7 +1428,7 @@ function Home() {
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="space-y-4">
                       <div className="card-modern bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
                         <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
@@ -1515,13 +1514,12 @@ function Home() {
                   )}
 
                   {sanctionsMessage && (
-                    <div className={`card-modern animate-slide-up ${
-                      sanctionsMessage.type === 'success'
-                        ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400'
-                        : sanctionsMessage.type === 'info'
+                    <div className={`card-modern animate-slide-up ${sanctionsMessage.type === 'success'
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400'
+                      : sanctionsMessage.type === 'info'
                         ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400'
                         : 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400'
-                    }`}>
+                      }`}>
                       <div className="whitespace-pre-wrap break-words">{sanctionsMessage.text}</div>
                       {sanctionsMessage.type === 'error' && (
                         <div className="mt-3 text-xs opacity-75">
@@ -1531,7 +1529,7 @@ function Home() {
                     </div>
                   )}
 
-                  
+
                 </>
               )}
             </div>
