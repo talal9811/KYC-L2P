@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
 import { collection, addDoc, getDocs, deleteDoc } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '../firebase/firebase'
-import { Upload, FileSearch, CheckCircle2, Zap, Shield, Search, FileText, LogOut, Menu, X, User, Calendar, Globe, CreditCard, AlertTriangle, CheckCircle, XCircle, Settings, Database, Moon, Sun } from 'lucide-react'
+import { Upload, FileSearch, CheckCircle2, Zap, Search, FileText, LogOut, User, Calendar, Globe, CreditCard, AlertTriangle, CheckCircle, XCircle, Database, Moon, Sun, BarChart3, History, Download, RotateCcw } from 'lucide-react'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 
@@ -34,12 +34,57 @@ function Home() {
   const [sanctionsSaving, setSanctionsSaving] = useState(false)
   const [sanctionsLoading, setSanctionsLoading] = useState(false)
   const [extractedData, setExtractedData] = useState(null)
-  const [showSanctions, setShowSanctions] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('check') // 'check' | 'sanctions'
+  const [stats, setStats] = useState({ totalEntries: 0, lastUpdated: null })
+  const [recentChecks, setRecentChecks] = useState(() => {
+    try {
+      const s = localStorage.getItem('l2p_recent_checks')
+      return s ? JSON.parse(s) : []
+    } catch { return [] }
+  })
 
   const handleLogout = () => {
     logout()
     navigate('/login')
+  }
+
+  const loadStats = async () => {
+    try {
+      const sanctionsRef = collection(db, 'sanctions')
+      const snapshot = await getDocs(sanctionsRef)
+      let total = 0
+      let lastUpload = null
+      snapshot.forEach((doc) => {
+        const d = doc.data()
+        if (d.entries && Array.isArray(d.entries)) total += d.entries.length
+        else if (d.name || d.id) total += 1
+        const at = d.uploadedAt || d.createdAt
+        if (at && (!lastUpload || at > lastUpload)) lastUpload = at
+      })
+      setStats({ totalEntries: total, lastUpdated: lastUpload })
+    } catch (e) {
+      console.warn('Could not load stats:', e)
+    }
+  }
+
+  useEffect(() => {
+    loadStats()
+  }, [])
+
+  const handleClearForm = () => {
+    setFormData({ fullName: '', nationality: '', idNumber: '' })
+    setCheckResult(null)
+  }
+
+  const handleExportResult = () => {
+    if (!checkResult) return
+    const blob = new Blob([JSON.stringify(checkResult, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `check-result-${formData.fullName || 'person'}-${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const ensureAuthToken = () => {
@@ -227,6 +272,17 @@ function Home() {
       })
 
       setCheckResult(result)
+      const entry = {
+        person: { fullName: formData.fullName, nationality: formData.nationality, idNumber: formData.idNumber },
+        status: result.status,
+        totalEntriesChecked: result.totalEntriesChecked,
+        at: new Date().toISOString()
+      }
+      setRecentChecks(prev => {
+        const next = [entry, ...prev].slice(0, 10)
+        try { localStorage.setItem('l2p_recent_checks', JSON.stringify(next)) } catch (_) {}
+        return next
+      })
     } catch (error) {
       console.error('Error checking watchlist:', error)
       setCheckResult({
@@ -284,7 +340,7 @@ function Home() {
         titleDiv.style.fontSize = '24px'
         titleDiv.style.fontFamily = 'Arial, "DejaVu Sans", "Arabic Typesetting", "Traditional Arabic", sans-serif'
         titleDiv.style.fontWeight = 'bold'
-        titleDiv.style.color = '#2563eb' // Blue color (37, 99, 235 in hex)
+        titleDiv.style.color = '#0d9488' // Teal primary
         titleDiv.style.textAlign = 'center'
         titleDiv.style.direction = 'rtl'
         titleDiv.style.unicodeBidi = 'embed'
@@ -941,7 +997,7 @@ function Home() {
         text: `Successfully saved!${oldFilesText}Uploaded new JSON file to Storage and ${extractedData.length} entries saved to Firestore. Document ID: ${docRef.id}`
       })
 
-      // Clear the form after successful save
+      loadStats()
       setSanctionsJsonFile(null)
       setExtractedData(null)
     } catch (error) {
@@ -1000,175 +1056,127 @@ function Home() {
     }
   }
 
+  const formatDate = (iso) => {
+    if (!iso) return '—'
+    try {
+      const d = new Date(iso)
+      return d.toLocaleDateString(undefined, { dateStyle: 'short' }) + ' ' + d.toLocaleTimeString(undefined, { timeStyle: 'short' })
+    } catch { return iso }
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      {/* Mobile Overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`fixed left-0 top-0 h-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-700/50 z-40 transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'
-        }`}>
-        <div className="h-full flex flex-col p-6">
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-8">
-            <img
-              src="/logoshort.png"
-              alt="Logo"
-              className="w-16 h-16 object-contain"
-            />
-            <div>
-              <h1 className="text-lg font-bold gradient-text"> L2P Checker</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Compliance System</p>
-            </div>
+    <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+      {/* Top Nav — single bar, no sidebar */}
+      <header className="sticky top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <img src="/logoshort.png" alt="Logo" className="h-9 w-9 object-contain" />
+            <span className="font-bold text-lg text-zinc-800 dark:text-zinc-100">L2P Checker</span>
           </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 space-y-2">
-            <div className="px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
-              <div className="flex items-center gap-3">
-                <Search className="w-5 h-5" />
-                <span className="font-semibold">Person Check</span>
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-zinc-500 dark:text-zinc-400 truncate max-w-[140px] sm:max-w-[200px]" title={user?.email}>{user?.email || 'User'}</span>
             <button
-              onClick={() => setShowSanctions(!showSanctions)}
-              className={`w-full px-3 py-2 rounded-xl flex items-center gap-3 transition-all ${showSanctions
-                ? 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                }`}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleTheme(); }}
+              className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              aria-label="Toggle theme"
             >
-              <Database className="w-5 h-5" />
-              <span className="font-medium">Sanctions Upload</span>
+              {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-zinc-600" />}
             </button>
-          </nav>
-
-          {/* User Info */}
-          <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                  {user?.email || 'User'}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Logged in</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  toggleTheme()
-                }}
-                className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex items-center justify-center gap-2 font-medium"
-                aria-label="Toggle theme"
-                type="button"
-              >
-                {theme === 'dark' ? (
-                  <>
-                    <Sun className="w-4 h-4" />
-                    <span>Light Mode</span>
-                  </>
-                ) : (
-                  <>
-                    <Moon className="w-4 h-4" />
-                    <span>Dark Mode</span>
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handleLogout}
-                className="w-full px-3 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex items-center justify-center gap-2 font-medium"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-              </button>
-            </div>
+            <button onClick={handleLogout} className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors" aria-label="Logout">
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
         </div>
-      </aside>
+        {/* Tabs */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex gap-1 border-t border-zinc-100 dark:border-zinc-800/80">
+          <button
+            onClick={() => setActiveTab('check')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'check'
+              ? 'border-teal-500 text-teal-600 dark:text-teal-400'
+              : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+          >
+            <span className="flex items-center gap-2">
+              <Search className="w-4 h-4" /> Person Check
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('sanctions')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'sanctions'
+              ? 'border-teal-500 text-teal-600 dark:text-teal-400'
+              : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+          >
+            <span className="flex items-center gap-2">
+              <Database className="w-4 h-4" /> Sanctions Upload
+            </span>
+          </button>
+        </div>
+      </header>
 
-      {/* Main Content */}
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'md:ml-64' : 'ml-0'}`}>
-        {/* Top Bar */}
-        <header className="sticky top-0 z-30 glass-card border-b border-slate-200/50 dark:border-slate-700/50">
-          <div className="px-6 py-4 flex items-center justify-between">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            >
-              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-            <div className="flex items-center gap-4">
-              {/* Logo */}
-              <img
-                src="/logo.png"
-                alt="Logo"
-                className="h-10 w-auto object-contain hidden sm:block"
-              />
-              {/* Theme Toggle Button */}
-              <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  toggleTheme()
-                }}
-                className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-200 hover:scale-110"
-                aria-label="Toggle theme"
-                type="button"
-              >
-                {theme === 'dark' ? (
-                  <Sun className="w-5 h-5 text-yellow-500" />
-                ) : (
-                  <Moon className="w-5 h-5 text-slate-700 dark:text-slate-300" />
-                )}
-              </button>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content Area */}
-        <main className="p-6">
-          <div className="max-w-6xl mx-auto space-y-6">
-            {/* Welcome Card */}
-            <div className="card-modern bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-              <div className="flex items-center justify-between">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+        {activeTab === 'check' && (
+          <div className="space-y-6">
+            {/* Stats row */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                </div>
                 <div>
-                  <h2 className="text-2xl font-bold mb-2">L2P System Checker</h2>
-                  <p className="text-blue-100">Verify individuals against the watchlist database</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Watchlist entries</p>
+                  <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{stats.totalEntries.toLocaleString()}</p>
                 </div>
-                <div className="hidden md:block">
-                  <img src="/logoshort.png" alt="Logo" className="h-28 w-auto object-contain" />
+              </div>
+              <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Last updated</p>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{stats.lastUpdated ? formatDate(stats.lastUpdated) : '—'}</p>
+                </div>
+              </div>
+              <div className="col-span-2 sm:col-span-1 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
+                  <History className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Recent checks</p>
+                  <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{recentChecks.length}</p>
                 </div>
               </div>
             </div>
 
-            {/* Person Input Form */}
-            <div className="card-modern">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
-                  <User className="w-5 h-5 text-white" />
+            {/* Person Check form card */}
+            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Verify person</h2>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">Check against watchlist by name, nationality, or ID</p>
+                  </div>
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  Person Verification Form
-                </h2>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={handleClearForm} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+                    <RotateCcw className="w-4 h-4" /> Clear
+                  </button>
+                  {checkResult && (
+                    <button type="button" onClick={handleExportResult} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 hover:bg-teal-200 dark:hover:bg-teal-800/50 transition-colors">
+                      <Download className="w-4 h-4" /> Export JSON
+                    </button>
+                  )}
+                </div>
               </div>
-
-              <form onSubmit={handleCheckWatchlist} className="space-y-5">
+              <form onSubmit={handleCheckWatchlist} className="p-6 space-y-5" onKeyDown={(e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleCheckWatchlist(e); } }}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="md:col-span-2">
-                    <label htmlFor="fullName" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    <label htmlFor="fullName" className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
                       Full Name
                     </label>
                     <div className="relative">
-                      <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-stone-400" />
                       <input
                         id="fullName"
                         name="fullName"
@@ -1182,11 +1190,11 @@ function Home() {
                   </div>
 
                   <div>
-                    <label htmlFor="nationality" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    <label htmlFor="nationality" className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
                       Nationality
                     </label>
                     <div className="relative">
-                      <Globe className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <Globe className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-stone-400" />
                       <input
                         id="nationality"
                         name="nationality"
@@ -1200,11 +1208,11 @@ function Home() {
                   </div>
 
                   <div>
-                    <label htmlFor="idNumber" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    <label htmlFor="idNumber" className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
                       ID Number
                     </label>
                     <div className="relative">
-                      <CreditCard className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <CreditCard className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-stone-400" />
                       <input
                         id="idNumber"
                         name="idNumber"
@@ -1221,21 +1229,21 @@ function Home() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  className="w-full py-3 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:bg-zinc-400 text-white font-semibold transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <>
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      Checking Watchlist...
-                    </span>
+                      Checking...
+                    </>
                   ) : (
-                    <span className="flex items-center justify-center gap-2">
+                    <>
                       <Search className="w-5 h-5" />
-                      Check Watchlist
-                    </span>
+                      Check watchlist <span className="text-white/80 text-xs font-normal ml-1">(Ctrl+Enter)</span>
+                    </>
                   )}
                 </button>
               </form>
@@ -1244,62 +1252,62 @@ function Home() {
               {checkResult && (
                 <div className="mt-6 animate-fade-in">
                   {checkResult.status === 'MATCH_FOUND' ? (
-                    <div className="card-modern border-2 border-red-300 dark:border-red-700 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20">
+                    <div className="card-modern border-2 border-rose-300 dark:border-rose-700 bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-900/20 dark:to-orange-900/20">
                       <div className="flex items-start gap-4 mb-6">
-                        <div className="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center flex-shrink-0">
+                        <div className="w-12 h-12 rounded-2xl bg-rose-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-rose-500/25">
                           <AlertTriangle className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-2xl font-bold text-red-800 dark:text-red-300 mb-2">
+                          <h3 className="text-2xl font-bold text-rose-800 dark:text-rose-300 mb-2">
                             Match Found in Watchlist
                           </h3>
-                          <p className="text-sm text-red-700 dark:text-red-400">
+                          <p className="text-sm text-rose-700 dark:text-rose-400">
                             Found <span className="font-bold">{checkResult.matches.length}</span> match(es) out of <span className="font-bold">{checkResult.totalEntriesChecked || 0}</span> entries checked
                           </p>
                         </div>
                       </div>
                       <div className="space-y-3">
                         {checkResult.matches.map((match, idx) => (
-                          <div key={idx} className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-red-200 dark:border-red-800 shadow-md">
+                          <div key={idx} className="bg-white dark:bg-zinc-800 p-5 rounded-2xl border border-rose-200 dark:border-rose-800 shadow-md">
                             <div className="flex items-center gap-2 mb-3">
-                              <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                                <span className="text-red-600 dark:text-red-400 font-bold text-sm">#{idx + 1}</span>
+                              <div className="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                                <span className="text-rose-600 dark:text-rose-400 font-bold text-sm">#{idx + 1}</span>
                               </div>
-                              <p className="font-bold text-slate-900 dark:text-slate-100">Match Details</p>
+                              <p className="font-bold text-zinc-900 dark:text-zinc-100">Match Details</p>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                               <div className="flex items-start gap-2">
-                                <User className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <User className="w-4 h-4 text-stone-400 mt-0.5 flex-shrink-0" />
                                 <div>
-                                  <p className="text-xs text-slate-500 dark:text-slate-400">Name</p>
-                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{match.name}</p>
+                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Name</p>
+                                  <p className="font-semibold text-zinc-900 dark:text-zinc-100">{match.name}</p>
                                 </div>
                               </div>
                               <div className="flex items-start gap-2">
-                                <Globe className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <Globe className="w-4 h-4 text-stone-400 mt-0.5 flex-shrink-0" />
                                 <div>
-                                  <p className="text-xs text-slate-500 dark:text-slate-400">Nationality</p>
-                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{match.nationality}</p>
+                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Nationality</p>
+                                  <p className="font-semibold text-zinc-900 dark:text-zinc-100">{match.nationality}</p>
                                 </div>
                               </div>
                               <div className="flex items-start gap-2">
-                                <Calendar className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <Calendar className="w-4 h-4 text-stone-400 mt-0.5 flex-shrink-0" />
                                 <div>
-                                  <p className="text-xs text-slate-500 dark:text-slate-400">Birth Date</p>
-                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{match.birth}</p>
+                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Birth Date</p>
+                                  <p className="font-semibold text-zinc-900 dark:text-zinc-100">{match.birth}</p>
                                 </div>
                               </div>
                               <div className="flex items-start gap-2">
-                                <CreditCard className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <CreditCard className="w-4 h-4 text-stone-400 mt-0.5 flex-shrink-0" />
                                 <div>
-                                  <p className="text-xs text-slate-500 dark:text-slate-400">ID Number</p>
-                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{match.id || match.idNumber || 'N/A'}</p>
+                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">ID Number</p>
+                                  <p className="font-semibold text-zinc-900 dark:text-zinc-100">{match.id || match.idNumber || 'N/A'}</p>
                                 </div>
                               </div>
                             </div>
                             {match.notes && (
-                              <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
-                                <p className="text-xs text-slate-600 dark:text-slate-400">{match.notes}</p>
+                              <div className="mt-3 pt-3 border-t border-rose-200 dark:border-rose-800">
+                                <p className="text-xs text-zinc-600 dark:text-zinc-400">{match.notes}</p>
                               </div>
                             )}
                           </div>
@@ -1307,33 +1315,33 @@ function Home() {
                       </div>
                     </div>
                   ) : checkResult.status === 'NO_MATCH' ? (
-                    <div className="card-modern border-2 border-green-300 dark:border-green-700 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+                    <div className="card-modern border-2 border-emerald-300 dark:border-emerald-700 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20">
                       <div className="flex items-start gap-4 mb-6">
-                        <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center flex-shrink-0">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/25">
                           <CheckCircle className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-2xl font-bold text-green-800 dark:text-green-300 mb-2">
+                          <h3 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300 mb-2">
                             No Match Found
                           </h3>
-                          <p className="text-sm text-green-700 dark:text-green-400">
+                          <p className="text-sm text-emerald-700 dark:text-emerald-400">
                             The person is not listed in the watchlist database
                           </p>
                         </div>
                       </div>
                       <button
                         onClick={handleGenerateCertificate}
-                        className="btn-primary bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-green-500/25 hover:shadow-green-500/40"
+                        className="btn-primary bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-500/25 hover:shadow-emerald-500/40"
                       >
                         <FileText className="w-5 h-5 mr-2" />
                         Generate Clearance Certificate
                       </button>
                     </div>
                   ) : (
-                    <div className="card-modern border-2 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
+                    <div className="card-modern border-2 border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20">
                       <div className="flex items-center gap-3">
-                        <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-                        <p className="text-red-700 dark:text-red-400 font-semibold">
+                        <XCircle className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+                        <p className="text-rose-700 dark:text-rose-400 font-semibold">
                           {checkResult.error || 'An error occurred'}
                         </p>
                       </div>
@@ -1343,45 +1351,69 @@ function Home() {
               )}
             </div>
 
-            {/* Sanctions Section */}
-            <div className="card-modern">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
-                    <Database className="w-5 h-5 text-white" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                    Sanctions Data Upload
-                  </h2>
+            {/* Recent checks */}
+            {recentChecks.length > 0 && (
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
+                  <History className="w-5 h-5 text-violet-500" />
+                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Recent checks</h3>
                 </div>
-                <button
-                  onClick={() => setShowSanctions(!showSanctions)}
-                  className="btn-secondary text-sm"
-                >
-                  {showSanctions ? 'Hide' : 'Show'} Upload
-                </button>
+                <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                  {recentChecks.slice(0, 10).map((item, i) => (
+                    <li key={i} className="px-6 py-3 flex items-center justify-between gap-4 flex-wrap">
+                      <div className="min-w-0">
+                        <p className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                          {item.person?.fullName || item.person?.idNumber || 'Unknown'}
+                        </p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">{formatDate(item.at)} · {item.totalEntriesChecked ?? 0} entries checked</p>
+                      </div>
+                      <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${
+                        item.status === 'MATCH_FOUND' ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300' :
+                        item.status === 'NO_MATCH' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' :
+                        'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                      }`}>
+                        {item.status === 'MATCH_FOUND' ? 'Match' : item.status === 'NO_MATCH' ? 'Clear' : 'Error'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
+            )}
+          </div>
+        )}
 
-              {showSanctions && (
+        {activeTab === 'sanctions' && (
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center">
+                  <Database className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Sanctions data upload</h2>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">Upload JSON to update the watchlist in Firebase</p>
+                </div>
+              </div>
+              <div className="p-6">
                 <div className="space-y-6 animate-fade-in">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
-                      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-2 border-dashed border-purple-300 dark:border-purple-700 rounded-2xl p-8 text-center">
+                      <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-2xl p-8 text-center">
                         <div className="flex justify-center mb-4">
-                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shadow-lg">
+                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
                             <FileSearch className="h-8 w-8 text-white" />
                           </div>
                         </div>
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">
+                        <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">
                           Upload JSON File
                         </h3>
-                        <p className="text-slate-600 dark:text-slate-400 text-sm mb-6">
+                        <p className="text-zinc-600 dark:text-zinc-400 text-sm mb-6">
                           Drop your JSON file here or browse to upload
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                           <label className="cursor-pointer">
-                            <span className="btn-primary bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-500/25 hover:shadow-purple-500/40 inline-flex items-center gap-2">
+                            <span className="btn-primary bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/25 hover:shadow-amber-500/40 inline-flex items-center gap-2">
                               <Upload className="h-4 w-4" /> Browse Files
                             </span>
                             <input
@@ -1398,8 +1430,8 @@ function Home() {
                               onClick={handleSaveSanctionsToFirebase}
                               disabled={sanctionsSaving || sanctionsLoading || !extractedData || !Array.isArray(extractedData)}
                               className={`btn-primary inline-flex items-center gap-2 ${sanctionsSaving || sanctionsLoading || !extractedData || !Array.isArray(extractedData)
-                                ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed opacity-50"
-                                : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25 hover:shadow-green-500/40"
+                                ? "bg-zinc-400 hover:bg-zinc-400 cursor-not-allowed opacity-50"
+                                : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-emerald-500/25 hover:shadow-emerald-500/40"
                                 }`}
                             >
                               {sanctionsSaving ? (
@@ -1420,9 +1452,9 @@ function Home() {
                         </div>
 
                         {sanctionsJsonFile && (
-                          <div className="mt-6 p-4 bg-white dark:bg-slate-800 rounded-xl border border-purple-200 dark:border-purple-700">
-                            <p className="text-sm text-slate-600 dark:text-slate-400">
-                              Selected: <span className="font-semibold text-slate-900 dark:text-slate-100">{sanctionsJsonFile.name}</span>
+                          <div className="mt-6 p-4 bg-white dark:bg-zinc-800 rounded-2xl border border-amber-200 dark:border-amber-700">
+                            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                              Selected: <span className="font-semibold text-zinc-900 dark:text-zinc-100">{sanctionsJsonFile.name}</span>
                             </p>
                           </div>
                         )}
@@ -1430,22 +1462,22 @@ function Home() {
                     </div>
 
                     <div className="space-y-4">
-                      <div className="card-modern bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                      <div className="card-modern bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20">
+                        <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 mb-3 flex items-center gap-2">
+                          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                           Extraction Features
                         </h4>
-                        <ul className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
+                        <ul className="space-y-3 text-sm text-zinc-700 dark:text-zinc-300">
                           <li className="flex items-start gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
                             <span>JSON file parsing</span>
                           </li>
                           <li className="flex items-start gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
                             <span>Data validation & normalization</span>
                           </li>
                           <li className="flex items-start gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
                             <span>Firebase Storage & Firestore</span>
                           </li>
                         </ul>
@@ -1453,59 +1485,56 @@ function Home() {
                     </div>
                   </div>
                 </div>
-              )}
 
-              {showSanctions && (
-                <>
-                  {sanctionsLoading && (
+                {sanctionsLoading && (
                     <div className="text-center py-8">
-                      <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
-                      <p className="mt-4 text-sm text-slate-600 dark:text-slate-400 font-medium">
+                      <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-amber-200 border-t-amber-600"></div>
+                      <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400 font-medium">
                         Processing JSON file and validating data...
                       </p>
                     </div>
                   )}
 
                   {extractedData && Array.isArray(extractedData) && extractedData.length > 0 && (
-                    <div className="card-modern bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-300 dark:border-green-700">
+                    <div className="card-modern bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-emerald-300 dark:border-emerald-700">
                       <div className="flex items-center gap-3 mb-4">
-                        <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                        <CheckCircle2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                        <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
                           Extracted Data ({extractedData.length} entries)
                         </h3>
                       </div>
-                      <div className="max-h-96 overflow-y-auto mb-4 rounded-xl border border-green-200 dark:border-green-800">
+                      <div className="max-h-96 overflow-y-auto mb-4 rounded-2xl border border-emerald-200 dark:border-emerald-800">
                         <table className="min-w-full text-sm">
-                          <thead className="bg-green-100 dark:bg-green-900/30 sticky top-0">
+                          <thead className="bg-emerald-100 dark:bg-emerald-900/30 sticky top-0">
                             <tr>
-                              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Name</th>
-                              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Nationality</th>
-                              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Birth</th>
-                              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">ID</th>
+                              <th className="px-4 py-3 text-left font-semibold text-zinc-700 dark:text-zinc-300">Name</th>
+                              <th className="px-4 py-3 text-left font-semibold text-zinc-700 dark:text-zinc-300">Nationality</th>
+                              <th className="px-4 py-3 text-left font-semibold text-zinc-700 dark:text-zinc-300">Birth</th>
+                              <th className="px-4 py-3 text-left font-semibold text-zinc-700 dark:text-zinc-300">ID</th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white dark:bg-slate-800 divide-y divide-green-200 dark:divide-green-800">
+                          <tbody className="bg-white dark:bg-zinc-800 divide-y divide-emerald-200 dark:divide-emerald-800">
                             {extractedData.slice(0, 10).map((entry, index) => (
-                              <tr key={index} className="hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
-                                <td className="px-4 py-3 text-slate-900 dark:text-slate-100 font-medium">{entry.name}</td>
-                                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{entry.nationality}</td>
-                                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{entry.birth}</td>
-                                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{entry.id}</td>
+                              <tr key={index} className="hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
+                                <td className="px-4 py-3 text-zinc-900 dark:text-zinc-100 font-medium">{entry.name}</td>
+                                <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{entry.nationality}</td>
+                                <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{entry.birth}</td>
+                                <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">{entry.id}</td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                         {extractedData.length > 10 && (
-                          <div className="p-3 bg-green-50 dark:bg-green-900/20 border-t border-green-200 dark:border-green-800">
-                            <p className="text-xs text-slate-600 dark:text-slate-400 text-center">
+                          <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border-t border-emerald-200 dark:border-emerald-800">
+                            <p className="text-xs text-zinc-600 dark:text-zinc-400 text-center">
                               Showing first 10 of {extractedData.length} entries. All entries will be saved to Firebase.
                             </p>
                           </div>
                         )}
                       </div>
-                      <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-green-300 dark:border-green-700">
-                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">JSON Data (Preview):</p>
-                        <pre className="text-xs text-slate-600 dark:text-slate-400 overflow-x-auto max-h-40 bg-slate-50 dark:bg-slate-900 p-3 rounded-lg">
+                      <div className="mt-4 p-4 bg-white dark:bg-zinc-800 rounded-2xl border border-emerald-300 dark:border-emerald-700">
+                        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2">JSON Data (Preview):</p>
+                        <pre className="text-xs text-zinc-600 dark:text-zinc-400 overflow-x-auto max-h-40 bg-stone-50 dark:bg-zinc-900 p-3 rounded-xl">
                           {JSON.stringify(extractedData.slice(0, 3), null, 2)}
                           {extractedData.length > 3 && '\n...\n' + (extractedData.length - 3) + ' more entries'}
                         </pre>
@@ -1515,10 +1544,10 @@ function Home() {
 
                   {sanctionsMessage && (
                     <div className={`card-modern animate-slide-up ${sanctionsMessage.type === 'success'
-                      ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400'
+                      ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400'
                       : sanctionsMessage.type === 'info'
-                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400'
-                        : 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400'
+                        ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-400'
+                        : 'bg-rose-50 dark:bg-rose-900/20 border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-400'
                       }`}>
                       <div className="whitespace-pre-wrap break-words">{sanctionsMessage.text}</div>
                       {sanctionsMessage.type === 'error' && (
@@ -1528,14 +1557,11 @@ function Home() {
                       )}
                     </div>
                   )}
-
-
-                </>
-              )}
+              </div>
             </div>
           </div>
-        </main>
-      </div>
+        )}
+      </main>
     </div>
   )
 }
