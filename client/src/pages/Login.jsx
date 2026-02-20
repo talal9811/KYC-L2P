@@ -40,7 +40,7 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-blue-900 dark:to-indigo-900 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-zinc-100 dark:bg-zinc-950 relative overflow-hidden">
       {/* Theme Toggle Button */}
       <button
         onClick={(e) => {
@@ -48,26 +48,26 @@ function Login() {
           e.stopPropagation()
           toggleTheme()
         }}
-        className="fixed top-4 right-4 z-50 p-3 rounded-xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110"
+        className="fixed top-4 right-4 z-50 p-3 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-md hover:shadow-lg transition-all"
         aria-label="Toggle theme"
         type="button"
       >
         {theme === 'dark' ? (
-          <Sun className="w-5 h-5 text-yellow-500" />
+          <Sun className="w-5 h-5 text-amber-400" />
         ) : (
-          <Moon className="w-5 h-5 text-slate-700" />
+          <Moon className="w-5 h-5 text-zinc-700" />
         )}
       </button>
 
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-teal-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow" />
         <div
-          className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow"
+          className="absolute -bottom-40 -left-40 w-80 h-80 bg-amber-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow"
           style={{ animationDelay: '1s' }}
         />
         <div
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow"
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-slow"
           style={{ animationDelay: '2s' }}
         />
       </div>
@@ -76,16 +76,16 @@ function Login() {
       <div className="relative z-10 w-full max-w-5xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
           {/* Left Panel – Brand & Benefits */}
-          <div className="space-y-6 text-slate-800 dark:text-slate-100">
+          <div className="space-y-6 text-zinc-800 dark:text-zinc-100">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-blue-600/10 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <div className="w-11 h-11 rounded-2xl bg-teal-600/10 dark:bg-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-400">
                 <Shield className="w-6 h-6" />
               </div>
               <div>
                 <h1 className="text-xl font-semibold tracking-tight">
                   L2P Brokerage Checker
                 </h1>
-                <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-xs md:text-sm text-zinc-600 dark:text-zinc-400">
                   Secure Compliance Verification System
                 </p>
               </div>
@@ -95,26 +95,26 @@ function Login() {
               <h2 className="text-2xl md:text-3xl font-semibold leading-snug mb-3">
                 Stay compliant with confidence.
               </h2>
-              <p className="text-sm md:text-base text-slate-600 dark:text-slate-400 mb-4">
+              <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400 mb-4">
                 Centralize all your KYC & watchlist checks in one easy-to-use dashboard,
                 backed by real-time monitoring and detailed audit trails.
               </p>
 
               <ul className="space-y-3 text-sm md:text-base">
                 <li className="flex gap-3">
-                  <span className="mt-1 h-5 w-5 flex items-center justify-center rounded-full bg-blue-600/10 text-blue-600 text-xs">
+                  <span className="mt-1 h-5 w-5 flex items-center justify-center rounded-full bg-teal-600/10 text-teal-600 dark:text-teal-400 text-xs font-semibold">
                     1
                   </span>
                   <span>Instant sanctions & PEP screening across global lists.</span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="mt-1 h-5 w-5 flex items-center justify-center rounded-full bg-blue-600/10 text-blue-600 text-xs">
+                  <span className="mt-1 h-5 w-5 flex items-center justify-center rounded-full bg-teal-600/10 text-teal-600 dark:text-teal-400 text-xs font-semibold">
                     2
                   </span>
                   <span>Automated alerts for high-risk matches and changes.</span>
                 </li>
                 <li className="flex gap-3">
-                  <span className="mt-1 h-5 w-5 flex items-center justify-center rounded-full bg-blue-600/10 text-blue-600 text-xs">
+                  <span className="mt-1 h-5 w-5 flex items-center justify-center rounded-full bg-teal-600/10 text-teal-600 dark:text-teal-400 text-xs font-semibold">
                     3
                   </span>
                   <span>Exportable audit logs for regulators and internal reviews.</span>
@@ -124,16 +124,16 @@ function Login() {
           </div>
 
           {/* Right Panel – Login Card */}
-          <div className="glass-card rounded-3xl p-8 md:p-10 shadow-2xl animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-8 md:p-10 shadow-xl animate-fade-in">
             {/* Logo on top (for mobile & extra branding) */}
             <div className="text-center mb-8 md:mb-6">
               <div className="inline-flex items-center justify-center w-auto h-auto mb-2">
                 <img src="/logo.png" alt="Logo" className="w-40 h-24 object-contain" />
               </div>
-              <h2 className="text-xl md:text-2xl font-semibold text-slate-900 dark:text-slate-50">
+              <h2 className="text-xl md:text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
                 Welcome back
               </h2>
-              <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400">
+              <p className="text-xs md:text-sm text-zinc-600 dark:text-zinc-400">
                 Sign in to access your brokerage compliance dashboard.
               </p>
             </div>
@@ -143,13 +143,13 @@ function Login() {
               <div className="space-y-2">
                 <label
                   htmlFor="email"
-                  className="block text-sm font-semibold text-slate-700 dark:text-slate-300"
+                  className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300"
                 >
                   Email
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-slate-400" />
+                    <Mail className="h-5 w-5 text-stone-400" />
                   </div>
                   <input
                     id="email"
@@ -167,13 +167,13 @@ function Login() {
               <div className="space-y-2">
                 <label
                   htmlFor="password"
-                  className="block text-sm font-semibold text-slate-700 dark:text-slate-300"
+                  className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300"
                 >
                   Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-slate-400" />
+                    <Lock className="h-5 w-5 text-stone-400" />
                   </div>
                   <input
                     id="password"
@@ -187,7 +187,7 @@ function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-stone-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -196,7 +196,7 @@ function Login() {
 
               {/* Error Message */}
               {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm animate-slide-up">
+                <div className="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-4 py-3 rounded-xl text-sm animate-slide-up">
                   <div className="flex items-center gap-2">
                     <svg
                       className="w-5 h-5"
@@ -220,7 +220,7 @@ function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                className="w-full py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -255,7 +255,7 @@ function Login() {
         </div>
 
         {/* Footer */}
-        <p className="text-center mt-6 text-slate-500 dark:text-slate-400 text-xs md:text-sm">
+        <p className="text-center mt-6 text-zinc-500 dark:text-zinc-400 text-xs md:text-sm">
           © 2025 KYC Watchlist Checker. All rights reserved.
         </p>
       </div>
