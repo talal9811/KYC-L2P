@@ -193,17 +193,20 @@ function Home() {
       console.log('Search values:', { searchName, searchId, normalizedSearchId, searchNationality })
 
       const matches = allEntries.filter(entry => {
+        const hasSearchName = Boolean(searchName)
+        const hasSearchId = Boolean(normalizedSearchId)
+
         // Name matching (case-insensitive, partial match) - only if name is provided
-        let nameMatch = true
-        if (searchName) {
+        let nameMatch = false
+        if (hasSearchName) {
           const entryName = String(entry.name || '').toLowerCase().trim()
           nameMatch = entryName.includes(searchName) || searchName.includes(entryName)
         }
 
         // ID matching (if provided) - check both id and idNumber fields
         // Extract numeric ID from entry and compare with normalized search ID
-        let idMatch = true
-        if (normalizedSearchId) {
+        let idMatch = false
+        if (hasSearchId) {
           // Get ID from either field
           const entryIdValue = entry.id || entry.idNumber
           if (entryIdValue && entryIdValue !== 'N/A' && String(entryIdValue).trim() !== '') {
@@ -238,20 +241,12 @@ function Home() {
           }
         }
 
-        // Nationality matching (if provided)
-        let nationalityMatch = true
-        if (searchNationality) {
-          // If user provided a nationality, entry must have a matching nationality
-          if (entry.nationality && entry.nationality !== 'N/A') {
-            const entryNationality = String(entry.nationality || '').toLowerCase().trim()
-            nationalityMatch = entryNationality.includes(searchNationality) || searchNationality.includes(entryNationality)
-          } else {
-            // Entry doesn't have a nationality, so it doesn't match
-            nationalityMatch = false
-          }
-        }
-
-        return nameMatch && idMatch && nationalityMatch
+        // Match when ANY provided field matches.
+        // Example: different name but same ID should still match.
+        return (
+          (hasSearchName && nameMatch) ||
+          (hasSearchId && idMatch)
+        )
       })
 
       const result = {
